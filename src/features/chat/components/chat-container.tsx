@@ -1,112 +1,95 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
-import { useChatStore } from "../stores/chat-store"
-import { ChatMessages } from "./chat-messages"
-import { ChatInput } from "./chat-input"
+import * as React from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Time01Icon } from "@hugeicons/core-free-icons";
+import { Button } from "@/components/ui/button";
+import { useChatStore } from "../stores/chat-store";
+import { useSessionStore } from "@/features/session";
+import { ChatMessages } from "./chat-messages";
+import { ChatInput } from "./chat-input";
+import { generateId } from "@/lib/id";
 
-export function ChatContainer() {
+interface ChatContainerProps {
+  onToggleHistory?: () => void;
+}
+
+export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
+  const { activeSessionId } = useSessionStore();
   const {
-    sessions,
-    activeSessionId,
-    createSession,
-    deleteSession,
-    setActiveSession,
+    getMessages,
     addMessage,
-  } = useChatStore()
+    streamingContent,
+    isStreaming,
+  } = useChatStore();
 
-  // Crear sesión inicial si no hay ninguna
-  React.useEffect(() => {
-    if (sessions.length === 0) {
-      createSession()
-    }
-  }, [sessions.length, createSession])
+  const messages = activeSessionId ? getMessages(activeSessionId) : [];
+  const currentStreamingContent = activeSessionId
+    ? streamingContent[activeSessionId] || ""
+    : "";
+  const currentIsStreaming = activeSessionId
+    ? isStreaming[activeSessionId] || false
+    : false;
 
-  const activeSession = sessions.find((s) => s.id === activeSessionId)
+  const handleSendMessage = async (content: string) => {
+    if (!activeSessionId) return;
 
-  const handleSendMessage = (content: string) => {
-    if (!activeSessionId) return
-
-    // Agregar mensaje del usuario
-    addMessage(activeSessionId, {
-      role: "user",
+    // Add user message locally
+    const userMessage = {
+      id: generateId("msg"),
+      sessionId: activeSessionId,
+      role: "user" as const,
       content,
-    })
+      createdAt: new Date(),
+    };
+    addMessage(activeSessionId, userMessage);
 
-    // Simular respuesta del asistente
+    // TODO: Send to API and handle streaming response
+    // For now, simulate a response
     setTimeout(() => {
-      addMessage(activeSessionId, {
-        role: "assistant",
-        content: `Respuesta a: "${content}"`,
-      })
-    }, 500)
-  }
+      const assistantMessage = {
+        id: generateId("msg"),
+        sessionId: activeSessionId,
+        role: "assistant" as const,
+        content: `I understand you want to: "${content}"\n\nLet me analyze this request and create a plan for you.`,
+        phase: "planning" as const,
+        createdAt: new Date(),
+      };
+      addMessage(activeSessionId, assistantMessage);
+    }, 1000);
+  };
 
-  const handleDeleteTab = (e: React.MouseEvent, sessionId: string) => {
-    e.stopPropagation()
-    deleteSession(sessionId)
-  }
-
-  if (!activeSession) {
-    return null
+  if (!activeSessionId) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+        <p className="text-muted-foreground">
+          Select a session to start chatting
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="flex h-full flex-col">
-      {/* Tabs Header */}
-      <Tabs
-        value={activeSessionId ?? undefined}
-        onValueChange={(value) => setActiveSession(value as string)}
-      >
-        <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-          <TabsList className="flex-1 overflow-x-auto">
-            {sessions.map((session) => (
-              <TabsTrigger
-                key={session.id}
-                value={session.id}
-                className="group relative pr-8"
-              >
-                {session.title}
-                {sessions.length > 1 && (
-                  <button
-                    onClick={(e) => handleDeleteTab(e, session.id)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted-foreground/20 group-hover:opacity-100"
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                  </button>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={createSession}
-          >
-            <HugeiconsIcon icon={Add01Icon} />
+      {/* Header */}
+      <div className="flex h-12 items-center justify-between border-b border-border px-4">
+        <span className="font-medium">Chat</span>
+        {onToggleHistory && (
+          <Button variant="ghost" size="icon-sm" onClick={onToggleHistory}>
+            <HugeiconsIcon icon={Time01Icon} className="size-4" />
           </Button>
-        </div>
-
-        {/* Chat Content */}
-        {sessions.map((session) => (
-          <TabsPanel
-            key={session.id}
-            value={session.id}
-            className="flex flex-1 flex-col overflow-hidden"
-          >
-            <ChatMessages messages={session.messages} />
-          </TabsPanel>
-        ))}
-      </Tabs>
-
-      {/* Fixed Footer Input */}
-      <div className="mt-auto border-t border-border bg-background">
-        <ChatInput onSend={handleSendMessage} />
+        )}
       </div>
+
+      {/* Messages */}
+      <ChatMessages
+        messages={messages}
+        streamingContent={currentStreamingContent}
+        isStreaming={currentIsStreaming}
+      />
+
+      {/* Input */}
+      <ChatInput onSend={handleSendMessage} disabled={currentIsStreaming} />
     </div>
-  )
+  );
 }

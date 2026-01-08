@@ -1,92 +1,187 @@
-import { create } from "zustand"
+import { create } from "zustand";
 
-export interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  createdAt: Date
+export type MessageRole = "user" | "assistant" | "system";
+export type MessagePhase = "planning" | "building" | "review";
+
+export interface Mention {
+  type: "user" | "agent" | "integration";
+  userId?: string;
+  agentType?: "reviewer" | "security" | "ux";
+  integrationId?: string;
 }
 
-export interface ChatSession {
-  id: string
-  title: string
-  messages: Message[]
-  createdAt: Date
+export interface Message {
+  id: string;
+  sessionId: string;
+  userId?: string;
+  role: MessageRole;
+  content: string;
+  phase?: MessagePhase;
+  mentions?: Mention[];
+  metadata?: {
+    tokensUsed?: number;
+    filesChanged?: string[];
+    toolsUsed?: string[];
+  };
+  createdAt: Date;
+}
+
+export interface Approval {
+  id: string;
+  messageId: string;
+  status: "pending" | "approved" | "rejected";
+  reviewerId?: string;
+  comment?: string;
+  createdAt: Date;
+  reviewedAt?: Date;
 }
 
 interface ChatStore {
-  sessions: ChatSession[]
-  activeSessionId: string | null
+  // State per session
+  messagesBySession: Record<string, Message[]>;
+  approvalsBySession: Record<string, Approval[]>;
+  streamingContent: Record<string, string>; // Current streaming content per session
+  isStreaming: Record<string, boolean>;
 
   // Actions
-  createSession: () => string
-  deleteSession: (sessionId: string) => void
-  setActiveSession: (sessionId: string) => void
-  addMessage: (sessionId: string, message: Omit<Message, "id" | "createdAt">) => void
-  updateSessionTitle: (sessionId: string, title: string) => void
+  setMessages: (sessionId: string, messages: Message[]) => void;
+  addMessage: (sessionId: string, message: Message) => void;
+  updateMessage: (
+    sessionId: string,
+    messageId: string,
+    updates: Partial<Message>
+  ) => void;
+
+  // Streaming
+  startStreaming: (sessionId: string) => void;
+  appendStreamContent: (sessionId: string, content: string) => void;
+  finishStreaming: (sessionId: string, finalMessage: Message) => void;
+
+  // Approvals
+  setApprovals: (sessionId: string, approvals: Approval[]) => void;
+  addApproval: (sessionId: string, approval: Approval) => void;
+  updateApproval: (
+    sessionId: string,
+    approvalId: string,
+    updates: Partial<Approval>
+  ) => void;
+
+  // Utilities
+  getMessages: (sessionId: string) => Message[];
+  getApprovals: (sessionId: string) => Approval[];
+  getPendingApproval: (sessionId: string) => Approval | undefined;
+  clearSession: (sessionId: string) => void;
+  reset: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 9)
+const initialState = {
+  messagesBySession: {},
+  approvalsBySession: {},
+  streamingContent: {},
+  isStreaming: {},
+};
 
 export const useChatStore = create<ChatStore>((set, get) => ({
-  sessions: [],
-  activeSessionId: null,
+  ...initialState,
 
-  createSession: () => {
-    const newSession: ChatSession = {
-      id: generateId(),
-      title: `Chat ${get().sessions.length + 1}`,
-      messages: [],
-      createdAt: new Date(),
-    }
-
+  setMessages: (sessionId, messages) =>
     set((state) => ({
-      sessions: [...state.sessions, newSession],
-      activeSessionId: newSession.id,
-    }))
+      messagesBySession: {
+        ...state.messagesBySession,
+        [sessionId]: messages,
+      },
+    })),
 
-    return newSession.id
-  },
+  addMessage: (sessionId, message) =>
+    set((state) => ({
+      messagesBySession: {
+        ...state.messagesBySession,
+        [sessionId]: [...(state.messagesBySession[sessionId] || []), message],
+      },
+    })),
 
-  deleteSession: (sessionId) => {
+  updateMessage: (sessionId, messageId, updates) =>
+    set((state) => ({
+      messagesBySession: {
+        ...state.messagesBySession,
+        [sessionId]: (state.messagesBySession[sessionId] || []).map((m) =>
+          m.id === messageId ? { ...m, ...updates } : m
+        ),
+      },
+    })),
+
+  startStreaming: (sessionId) =>
+    set((state) => ({
+      streamingContent: { ...state.streamingContent, [sessionId]: "" },
+      isStreaming: { ...state.isStreaming, [sessionId]: true },
+    })),
+
+  appendStreamContent: (sessionId, content) =>
+    set((state) => ({
+      streamingContent: {
+        ...state.streamingContent,
+        [sessionId]: (state.streamingContent[sessionId] || "") + content,
+      },
+    })),
+
+  finishStreaming: (sessionId, finalMessage) =>
+    set((state) => ({
+      messagesBySession: {
+        ...state.messagesBySession,
+        [sessionId]: [...(state.messagesBySession[sessionId] || []), finalMessage],
+      },
+      streamingContent: { ...state.streamingContent, [sessionId]: "" },
+      isStreaming: { ...state.isStreaming, [sessionId]: false },
+    })),
+
+  setApprovals: (sessionId, approvals) =>
+    set((state) => ({
+      approvalsBySession: {
+        ...state.approvalsBySession,
+        [sessionId]: approvals,
+      },
+    })),
+
+  addApproval: (sessionId, approval) =>
+    set((state) => ({
+      approvalsBySession: {
+        ...state.approvalsBySession,
+        [sessionId]: [...(state.approvalsBySession[sessionId] || []), approval],
+      },
+    })),
+
+  updateApproval: (sessionId, approvalId, updates) =>
+    set((state) => ({
+      approvalsBySession: {
+        ...state.approvalsBySession,
+        [sessionId]: (state.approvalsBySession[sessionId] || []).map((a) =>
+          a.id === approvalId ? { ...a, ...updates } : a
+        ),
+      },
+    })),
+
+  getMessages: (sessionId) => get().messagesBySession[sessionId] || [],
+  getApprovals: (sessionId) => get().approvalsBySession[sessionId] || [],
+
+  getPendingApproval: (sessionId) =>
+    (get().approvalsBySession[sessionId] || []).find(
+      (a) => a.status === "pending"
+    ),
+
+  clearSession: (sessionId) =>
     set((state) => {
-      const newSessions = state.sessions.filter((s) => s.id !== sessionId)
-      const newActiveId = state.activeSessionId === sessionId
-        ? newSessions[newSessions.length - 1]?.id ?? null
-        : state.activeSessionId
+      const { [sessionId]: _messages, ...restMessages } = state.messagesBySession;
+      const { [sessionId]: _approvals, ...restApprovals } = state.approvalsBySession;
+      const { [sessionId]: _streaming, ...restStreaming } = state.streamingContent;
+      const { [sessionId]: _isStreaming, ...restIsStreaming } = state.isStreaming;
 
       return {
-        sessions: newSessions,
-        activeSessionId: newActiveId,
-      }
-    })
-  },
+        messagesBySession: restMessages,
+        approvalsBySession: restApprovals,
+        streamingContent: restStreaming,
+        isStreaming: restIsStreaming,
+      };
+    }),
 
-  setActiveSession: (sessionId) => {
-    set({ activeSessionId: sessionId })
-  },
-
-  addMessage: (sessionId, message) => {
-    const newMessage: Message = {
-      ...message,
-      id: generateId(),
-      createdAt: new Date(),
-    }
-
-    set((state) => ({
-      sessions: state.sessions.map((session) =>
-        session.id === sessionId
-          ? { ...session, messages: [...session.messages, newMessage] }
-          : session
-      ),
-    }))
-  },
-
-  updateSessionTitle: (sessionId, title) => {
-    set((state) => ({
-      sessions: state.sessions.map((session) =>
-        session.id === sessionId ? { ...session, title } : session
-      ),
-    }))
-  },
-}))
+  reset: () => set(initialState),
+}));
