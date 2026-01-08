@@ -246,6 +246,39 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
   }),
 }));
 
+// Git provider connections (separate from login OAuth)
+export const gitConnections = pgTable(
+  "git_connections",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(), // github | gitlab | bitbucket
+    providerAccountId: text("provider_account_id").notNull(),
+    providerUsername: text("provider_username"), // For display
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    tokenExpiresAt: timestamp("token_expires_at"),
+    scopes: text("scopes"),
+    connectedAt: timestamp("connected_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("gitConnections_userId_idx").on(table.userId),
+    uniqueIndex("gitConnections_userId_provider_uidx").on(
+      table.userId,
+      table.provider
+    ),
+  ]
+);
+
+export const gitConnectionsRelations = relations(gitConnections, ({ one }) => ({
+  user: one(users, {
+    fields: [gitConnections.userId],
+    references: [users.id],
+  }),
+}));
+
 // ============================================================================
 // VIBECODE MVP TABLES
 // ============================================================================

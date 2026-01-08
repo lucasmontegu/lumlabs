@@ -2,7 +2,7 @@ export function AuthBranding() {
   return (
     <div className="relative hidden h-full flex-col bg-zinc-950 p-10 text-white lg:flex">
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-violet-950/50 via-zinc-950 to-zinc-950" />
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-950/50 via-zinc-950 to-zinc-950" />
 
       {/* Subtle grid pattern */}
       <div
@@ -14,7 +14,7 @@ export function AuthBranding() {
 
       {/* Glow effect */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-[120px]" />
+        <div className="h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px]" />
       </div>
 
       {/* Content */}
@@ -83,16 +83,16 @@ function Logo({ size = 32 }: { size?: number }) {
 
       <defs>
         <linearGradient id="bg-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#1e1b4b" />
-          <stop offset="1" stopColor="#0f0f23" />
+          <stop stopColor="#172554" />
+          <stop offset="1" stopColor="#0f172a" />
         </linearGradient>
         <linearGradient id="shape-gradient-1" x1="16" y1="6" x2="30" y2="20" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#a78bfa" />
-          <stop offset="1" stopColor="#7c3aed" />
+          <stop stopColor="#60a5fa" />
+          <stop offset="1" stopColor="#3b82f6" />
         </linearGradient>
         <linearGradient id="shape-gradient-2" x1="16" y1="9" x2="26" y2="19" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#c4b5fd" />
-          <stop offset="1" stopColor="#a78bfa" />
+          <stop stopColor="#93c5fd" />
+          <stop offset="1" stopColor="#60a5fa" />
         </linearGradient>
       </defs>
     </svg>

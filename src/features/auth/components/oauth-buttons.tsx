@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { signIn } from "@/lib/auth-client"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type Provider = "github" | "google" | "vercel"
@@ -53,15 +54,14 @@ export function OAuthButtons({ mode = "signin" }: OAuthButtonsProps) {
         const isDisabled = loadingProvider !== null
 
         return (
-          <button
+          <Button
             key={provider.id}
+            variant="outline"
+            size="lg"
             onClick={() => handleSignIn(provider.id)}
             disabled={isDisabled}
             className={cn(
-              "relative flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 text-sm font-medium transition-all",
-              "hover:bg-muted/50 hover:border-foreground/20",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:pointer-events-none disabled:opacity-50",
+              "relative w-full justify-center",
               isLoading && "cursor-wait"
             )}
           >
@@ -75,7 +75,7 @@ export function OAuthButtons({ mode = "signin" }: OAuthButtonsProps) {
                 </span>
               </>
             )}
-          </button>
+          </Button>
         )
       })}
     </div>

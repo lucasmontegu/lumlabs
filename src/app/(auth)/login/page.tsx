@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { OAuthButtons } from "@/features/auth"
+import { OAuthButtons, EmailForm } from "@/features/auth"
 
 export default function LoginPage() {
   return (
@@ -25,22 +25,17 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Email link */}
-      <Link
-        href="/login/email"
-        className="flex h-11 w-full items-center justify-center rounded-lg border border-border bg-background text-sm font-medium transition-all hover:bg-muted/50 hover:border-foreground/20"
-      >
-        Continue with email
-      </Link>
+      {/* Email Form */}
+      <EmailForm mode="signin" />
 
-      {/* Sign up link */}
+      {/* Register link */}
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
         <Link
-          href="/login/signup"
+          href="/register"
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Sign up
+          Register
         </Link>
       </p>
     </div>
