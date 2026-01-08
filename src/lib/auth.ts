@@ -13,15 +13,8 @@ export const auth = betterAuth({
     emailAndPassword: {
       enabled: true,
     },
+    // Only Google for login - GitHub/GitLab/Bitbucket are for connecting repos
     socialProviders: {
-      github: {
-        clientId: process.env.GITHUB_CLIENT_ID as string,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-      },
-      vercel: {
-        clientId: process.env.VERCEL_CLIENT_ID as string,
-        clientSecret: process.env.VERCEL_CLIENT_SECRET as string,
-      },
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID as string,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
