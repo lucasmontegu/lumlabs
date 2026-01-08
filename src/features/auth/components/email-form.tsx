@@ -34,24 +34,31 @@ export function EmailForm({ mode }: EmailFormProps) {
           email: formData.email,
           password: formData.password,
           name: formData.name,
-          callbackURL: "/",
         })
         if (error) {
           setError(error.message || "Failed to create account")
+          setIsLoading(false)
+        } else {
+          // Registration successful - redirect to home (will go to workspace)
+          router.push("/")
+          router.refresh()
         }
       } else {
         const { error } = await signIn.email({
           email: formData.email,
           password: formData.password,
-          callbackURL: "/",
         })
         if (error) {
           setError(error.message || "Invalid email or password")
+          setIsLoading(false)
+        } else {
+          // Login successful - redirect to home
+          router.push("/")
+          router.refresh()
         }
       }
     } catch (err) {
       setError("Something went wrong. Please try again.")
-    } finally {
       setIsLoading(false)
     }
   }
