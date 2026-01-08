@@ -11,18 +11,35 @@ import {
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "../stores/session-store";
 
+interface PreviewState {
+  isLoading: boolean;
+  url: string | null;
+}
+
 export function SessionPreview() {
-  const { getActiveSession } = useSessionStore();
+  const { getActiveSession, activeSessionId } = useSessionStore();
   const session = getActiveSession();
-  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Track loading state per session
+  const [previewStates, setPreviewStates] = React.useState<
+    Record<string, PreviewState>
+  >({});
+
+  const iframeRefs = React.useRef<Record<string, HTMLIFrameElement | null>>({});
+
+  const currentState = activeSessionId
+    ? previewStates[activeSessionId] || { isLoading: false, url: session?.previewUrl || null }
+    : { isLoading: false, url: null };
 
   const handleRefresh = () => {
-    // Refresh the iframe
-    const iframe = document.querySelector<HTMLIFrameElement>(
-      "#preview-iframe"
-    );
-    if (iframe) {
-      setIsLoading(true);
+    if (!activeSessionId) return;
+
+    const iframe = iframeRefs.current[activeSessionId];
+    if (iframe && iframe.src) {
+      setPreviewStates((prev) => ({
+        ...prev,
+        [activeSessionId]: { ...prev[activeSessionId], isLoading: true },
+      }));
       iframe.src = iframe.src;
     }
   };
@@ -92,6 +109,13 @@ export function SessionPreview() {
     );
   }
 
+  const handleIframeLoad = (sessionId: string) => {
+    setPreviewStates((prev) => ({
+      ...prev,
+      [sessionId]: { ...prev[sessionId], isLoading: false },
+    }));
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -112,19 +136,22 @@ export function SessionPreview() {
         </div>
       </div>
 
-      {/* Preview iframe */}
+      {/* Preview iframe - keyed by session for state preservation */}
       <div className="relative flex-1 bg-white">
-        {isLoading && (
+        {currentState.isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
           </div>
         )}
         <iframe
-          id="preview-iframe"
+          key={session.id}
+          ref={(el) => {
+            iframeRefs.current[session.id] = el;
+          }}
           src={session.previewUrl}
           className="size-full border-0"
-          onLoad={() => setIsLoading(false)}
-          title="Preview"
+          onLoad={() => handleIframeLoad(session.id)}
+          title={`Preview - ${session.name}`}
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
         />
       </div>

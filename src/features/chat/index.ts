@@ -7,6 +7,8 @@ export type {
   Approval,
 } from "./stores/chat-store";
 
+export { useChatStream } from "./hooks/use-chat-stream";
+
 export { ChatContainer } from "./components/chat-container";
 export { ChatMessages } from "./components/chat-messages";
 export { ChatInput } from "./components/chat-input";

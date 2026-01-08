@@ -1,6 +1,8 @@
 export { useSessionStore } from "./stores/session-store";
 export type { FeatureSession, SessionStatus } from "./stores/session-store";
 
+export { useSessionPreview } from "./hooks/use-session-preview";
+
 export { SessionTabs } from "./components/session-tabs";
 export { SessionPreview } from "./components/session-preview";
 export { SessionStatusBar } from "./components/session-status-bar";
