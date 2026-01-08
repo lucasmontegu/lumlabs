@@ -8,7 +8,7 @@ Implementar página de login con OAuth-first approach y onboarding minimal. Auto
 
 - **Approach**: OAuth-first (GitHub, Google, Vercel prominentes)
 - **Layout**: Split screen (branding izquierda, form derecha)
-- **Branding**: Gradiente oscuro + logo VibeCode
+- **Branding**: Gradiente oscuro + logo LumLabs
 - **Onboarding**: Minimal - después de OAuth, auto-crear org y redirect
 - **Plan Free**: 1 workspace, 1 miembro (sin invitaciones)
 

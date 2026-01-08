@@ -8,7 +8,7 @@ export default function SignUpPage() {
       <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground">
-          Get started with VibeCode for free
+          Get started with LumLabs for free
         </p>
       </div>
 

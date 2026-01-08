@@ -18,9 +18,9 @@ export function AuthBranding() {
       </div>
 
       {/* Content */}
-      <div className="relative z-20 flex items-center gap-2 text-lg font-medium">
+      <div className="relative z-20 flex items-center gap-2.5 text-lg font-medium">
         <Logo />
-        <span>VibeCode</span>
+        <span className="tracking-tight">LumLabs</span>
       </div>
 
       <div className="relative z-20 mt-auto">
@@ -37,41 +37,64 @@ export function AuthBranding() {
   )
 }
 
-function Logo() {
+/**
+ * LumLabs Logo - A geometric shape inspired by light refraction
+ * The overlapping translucent shapes create depth and represent
+ * the "illumination" aspect of the brand name
+ */
+function Logo({ size = 32 }: { size?: number }) {
   return (
     <svg
-      width="32"
-      height="32"
+      width={size}
+      height={size}
       viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="text-violet-400"
     >
+      {/* Background circle with gradient */}
+      <circle cx="16" cy="16" r="16" fill="url(#bg-gradient)" />
+
+      {/* Main geometric shape - rotated square */}
       <rect
-        width="32"
-        height="32"
-        rx="8"
-        className="fill-violet-500/20"
+        x="16"
+        y="6"
+        width="14"
+        height="14"
+        rx="2"
+        transform="rotate(45 16 6)"
+        fill="url(#shape-gradient-1)"
+        fillOpacity="0.9"
       />
-      <path
-        d="M8 12L16 8L24 12V20L16 24L8 20V12Z"
-        className="stroke-current"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+
+      {/* Secondary shape - offset for depth */}
+      <rect
+        x="16"
+        y="9"
+        width="10"
+        height="10"
+        rx="1.5"
+        transform="rotate(45 16 9)"
+        fill="url(#shape-gradient-2)"
+        fillOpacity="0.95"
       />
-      <path
-        d="M16 14V18"
-        className="stroke-current"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12 16H20"
-        className="stroke-current"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+
+      {/* Center accent - light burst */}
+      <circle cx="16" cy="16" r="3" fill="white" fillOpacity="0.95" />
+
+      <defs>
+        <linearGradient id="bg-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#1e1b4b" />
+          <stop offset="1" stopColor="#0f0f23" />
+        </linearGradient>
+        <linearGradient id="shape-gradient-1" x1="16" y1="6" x2="30" y2="20" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#a78bfa" />
+          <stop offset="1" stopColor="#7c3aed" />
+        </linearGradient>
+        <linearGradient id="shape-gradient-2" x1="16" y1="9" x2="26" y2="19" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#c4b5fd" />
+          <stop offset="1" stopColor="#a78bfa" />
+        </linearGradient>
+      </defs>
     </svg>
   )
 }

@@ -85,11 +85,11 @@ export function WorkspaceSidebar() {
       {/* Logo / Workspace selector */}
       <div className="flex h-14 items-center gap-3 border-b border-border px-4">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold">
-          V
+          L
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-medium">
-            {activeWorkspace?.name || "VibeCode"}
+            {activeWorkspace?.name || "LumLabs"}
           </span>
           <span className="text-xs text-muted-foreground">Workspace</span>
         </div>
