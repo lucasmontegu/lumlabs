@@ -175,16 +175,19 @@ export async function GET(
   const cookieStore = await cookies();
   const storedState = cookieStore.get("git_oauth_state")?.value;
   const workspaceSlug = cookieStore.get("git_oauth_workspace")?.value || "";
+  const returnTo = cookieStore.get("git_oauth_return_to")?.value || "";
 
   // Get query params
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const error = request.nextUrl.searchParams.get("error");
 
-  // Build redirect URL
-  const redirectUrl = workspaceSlug
-    ? `/w/${workspaceSlug}/connect`
-    : "/";
+  // Build redirect URL - prefer returnTo, then workspace, then root
+  const redirectUrl = returnTo
+    ? returnTo
+    : workspaceSlug
+      ? `/w/${workspaceSlug}/connect`
+      : "/";
 
   // Handle OAuth errors
   if (error) {
@@ -269,6 +272,7 @@ export async function GET(
     // Clear OAuth cookies
     cookieStore.delete("git_oauth_state");
     cookieStore.delete("git_oauth_workspace");
+    cookieStore.delete("git_oauth_return_to");
 
     // Redirect to connect page with success
     return NextResponse.redirect(

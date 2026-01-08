@@ -5,4 +5,5 @@ export type {
   CreateWorkspaceOptions,
   ExecuteCommandOptions,
   CommandResult,
+  AgentStreamEvent,
 } from "./client";

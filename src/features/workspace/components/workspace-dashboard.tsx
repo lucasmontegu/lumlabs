@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Add01Icon,
@@ -12,8 +12,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useWorkspaceStore, Repository } from "../stores/workspace-store";
 import { useSessionStore, FeatureSession } from "@/features/session";
+import { QuickActions } from "@/features/onboarding";
 import { cn } from "@/lib/utils";
 
 function RepoCard({ repo }: { repo: Repository }) {
@@ -110,9 +112,11 @@ function SessionRow({ session }: { session: FeatureSession }) {
 
 export function WorkspaceDashboard() {
   const params = useParams();
+  const router = useRouter();
   const workspaceSlug = params.workspaceSlug as string;
   const { repositories } = useWorkspaceStore();
   const { sessions } = useSessionStore();
+  const [inputValue, setInputValue] = React.useState("");
 
   // Get recent sessions (last 5)
   const recentSessions = React.useMemo(() => {
@@ -123,6 +127,74 @@ export function WorkspaceDashboard() {
       )
       .slice(0, 5);
   }, [sessions]);
+
+  // Show welcome state when user has repos but no sessions
+  const showWelcome = repositories.length > 0 && sessions.length === 0;
+
+  const handleQuickAction = (prompt: string) => {
+    setInputValue(prompt);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    // Navigate to new session with the prompt
+    const encodedPrompt = encodeURIComponent(inputValue.trim());
+    router.push(`/w/${workspaceSlug}/new-session?prompt=${encodedPrompt}`);
+  };
+
+  // Welcome state with QuickActions
+  if (showWelcome) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-6">
+        <div className="w-full max-w-lg">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Bienvenido! 👋
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Describe lo que quieres construir
+            </p>
+          </div>
+
+          <Card className="p-6">
+            <div className="mb-6">
+              <h2 className="mb-4 text-sm font-medium text-muted-foreground">
+                ¿Que te gustaria hacer hoy?
+              </h2>
+              <QuickActions onSelect={handleQuickAction} />
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="relative">
+                <Input
+                  placeholder="O describe directamente..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  className="h-12 pr-12"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="size-5" />
+                </button>
+              </div>
+            </form>
+          </Card>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Trabajando en{" "}
+            <span className="font-medium text-foreground">
+              {repositories[0]?.name || "tu proyecto"}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-8 overflow-y-auto p-6">
@@ -173,7 +245,7 @@ export function WorkspaceDashboard() {
         </section>
       )}
 
-      {/* Empty state */}
+      {/* Empty state - no repos */}
       {repositories.length === 0 && recentSessions.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <div className="flex size-16 items-center justify-center rounded-full bg-muted">

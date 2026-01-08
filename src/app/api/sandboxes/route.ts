@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
 
     // Create Daytona workspace
     const daytonaWorkspace = await daytona.createWorkspace({
-      name: `${repo[0].name}-${generateId()}`,
       repoUrl: repo[0].url,
       branch: repo[0].defaultBranch || "main",
     });

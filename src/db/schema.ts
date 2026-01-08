@@ -505,3 +505,39 @@ export const approvalsRelations = relations(approvals, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================================================
+// ONBOARDING
+// ============================================================================
+
+// Track user onboarding progress
+export const onboardingState = pgTable(
+  "onboarding_state",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    step: text("step").default("connect").notNull(), // connect | select-repo | completed
+    defaultRepositoryId: text("default_repository_id").references(
+      () => repositories.id,
+      { onDelete: "set null" }
+    ),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("onboardingState_userId_uidx").on(table.userId),
+  ]
+);
+
+export const onboardingStateRelations = relations(onboardingState, ({ one }) => ({
+  user: one(users, {
+    fields: [onboardingState.userId],
+    references: [users.id],
+  }),
+  defaultRepository: one(repositories, {
+    fields: [onboardingState.defaultRepositoryId],
+    references: [repositories.id],
+  }),
+}));

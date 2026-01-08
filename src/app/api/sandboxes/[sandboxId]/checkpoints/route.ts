@@ -142,11 +142,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let daytonaCheckpointId: string | undefined;
     if (result[0].sandbox.daytonaWorkspaceId) {
       try {
-        const daytonaCheckpoint = await daytona.createCheckpoint(
+        daytonaCheckpointId = await daytona.createCheckpoint(
           result[0].sandbox.daytonaWorkspaceId,
           label
         );
-        daytonaCheckpointId = daytonaCheckpoint.id;
       } catch (error) {
         console.error("Failed to create Daytona checkpoint:", error);
         // Continue without Daytona checkpoint

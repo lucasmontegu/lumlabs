@@ -5,8 +5,26 @@ import { db, repositories } from "@/db";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 
-// GET /api/repositories - List repositories for the active organization
-export async function GET() {
+// Helper to verify user has access to organization
+async function verifyOrgAccess(userId: string, organizationId: string): Promise<boolean> {
+  const membership = await db.query.members.findFirst({
+    where: (m, { eq, and }) => and(
+      eq(m.userId, userId),
+      eq(m.organizationId, organizationId)
+    ),
+  });
+  return !!membership;
+}
+
+// Helper to get organization by slug
+async function getOrgBySlug(slug: string) {
+  return db.query.organizations.findFirst({
+    where: (org, { eq }) => eq(org.slug, slug),
+  });
+}
+
+// GET /api/repositories - List repositories for an organization
+export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -16,12 +34,30 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const organizationId = session.session.activeOrganizationId;
+    // Accept organizationId or slug from query params
+    const { searchParams } = new URL(request.url);
+    let organizationId = searchParams.get("organizationId") || session.session.activeOrganizationId;
+    const slug = searchParams.get("slug");
+
+    // If slug provided, look up the organization
+    if (slug && !organizationId) {
+      const org = await getOrgBySlug(slug);
+      if (org) {
+        organizationId = org.id;
+      }
+    }
+
     if (!organizationId) {
       return NextResponse.json(
-        { error: "No active organization" },
+        { error: "No organization specified" },
         { status: 400 }
       );
+    }
+
+    // Verify user has access to this organization
+    const hasAccess = await verifyOrgAccess(session.user.id, organizationId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     const repos = await db
@@ -50,16 +86,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const organizationId = session.session.activeOrganizationId;
+    const body = await request.json();
+    const { name, url, provider, defaultBranch = "main", organizationId: bodyOrgId, slug } = body;
+
+    // Get organizationId from body, or look up by slug
+    let organizationId = bodyOrgId || session.session.activeOrganizationId;
+
+    if (slug && !organizationId) {
+      const org = await getOrgBySlug(slug);
+      if (org) {
+        organizationId = org.id;
+      }
+    }
+
     if (!organizationId) {
       return NextResponse.json(
-        { error: "No active organization" },
+        { error: "No organization specified" },
         { status: 400 }
       );
     }
 
-    const body = await request.json();
-    const { name, url, provider, defaultBranch = "main" } = body;
+    // Verify user has access to this organization
+    const hasAccess = await verifyOrgAccess(session.user.id, organizationId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
 
     if (!name || !url || !provider) {
       return NextResponse.json(

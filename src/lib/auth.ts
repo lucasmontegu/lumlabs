@@ -4,6 +4,17 @@ import { db } from "@/db";
 import { organization, admin } from "better-auth/plugins";
 import { createDefaultOrganization } from "@/features/auth/actions/create-default-org";
 
+// Helper to get user's first organization
+async function getUserFirstOrganization(userId: string) {
+  const membership = await db.query.members.findFirst({
+    where: (m, { eq }) => eq(m.userId, userId),
+    with: {
+      organizations: true,
+    },
+  });
+  return membership?.organizations;
+}
+
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "pg",
@@ -29,6 +40,23 @@ export const auth = betterAuth({
               userId: user.id,
               userName: user.name,
             });
+          },
+        },
+      },
+      session: {
+        create: {
+          before: async (session) => {
+            // Set the user's first organization as active when session is created
+            const org = await getUserFirstOrganization(session.userId);
+            if (org) {
+              return {
+                data: {
+                  ...session,
+                  activeOrganizationId: org.id,
+                },
+              };
+            }
+            return { data: session };
           },
         },
       },

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db } from "@/db";
+import { db, onboardingState } from "@/db";
+import { eq } from "drizzle-orm";
 
 export default async function RootPage() {
   const session = await auth.api.getSession({
@@ -10,6 +11,19 @@ export default async function RootPage() {
 
   if (!session) {
     redirect("/login");
+  }
+
+  // Check onboarding state
+  const [userOnboarding] = await db
+    .select()
+    .from(onboardingState)
+    .where(eq(onboardingState.userId, session.user.id))
+    .limit(1);
+
+  // If no onboarding record or not completed, go to onboarding
+  if (!userOnboarding || userOnboarding.step !== "completed") {
+    const step = userOnboarding?.step || "connect";
+    redirect(`/onboarding/${step === "select-repo" ? "select-repo" : "connect"}`);
   }
 
   // Get user's first organization

@@ -56,20 +56,18 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Pause Daytona workspace
-    const workspace = await daytona.pauseWorkspace(
-      result[0].sandbox.daytonaWorkspaceId
-    );
+    await daytona.pauseWorkspace(result[0].sandbox.daytonaWorkspaceId);
 
     // Update sandbox status
     await db
       .update(sandboxes)
-      .set({ status: workspace.status })
+      .set({ status: "paused" })
       .where(eq(sandboxes.id, sandboxId));
 
     return NextResponse.json({
       sandbox: {
         ...result[0].sandbox,
-        status: workspace.status,
+        status: "paused",
       },
     });
   } catch (error) {

@@ -4,8 +4,11 @@ import { headers } from "next/headers";
 import { db, featureSessions, sandboxes, messages } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/id";
-import { createOpenCodeClient } from "@/lib/opencode";
-import { daytona } from "@/lib/daytona";
+import {
+  getDefaultProvider,
+  getProvider,
+  type AgentProviderType,
+} from "@/lib/agent-provider";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
@@ -69,7 +72,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { content, systemPrompt } = body;
+    const { content, provider: providerType } = body as {
+      content: string;
+      provider?: AgentProviderType;
+    };
 
     if (!content) {
       return new Response(JSON.stringify({ error: "content is required" }), {
@@ -77,6 +83,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Get the agent provider (use specified or default)
+    const provider = providerType
+      ? getProvider(providerType)
+      : getDefaultProvider();
 
     // Save user message to database
     const userMessageId = generateId("msg");
@@ -89,30 +100,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       createdAt: new Date(),
     });
 
-    // Get preview URL from Daytona
-    const previewUrl = await daytona.getPreviewUrl(sandbox.daytonaWorkspaceId);
-
-    // Create OpenCode client for this sandbox
-    const opencode = createOpenCodeClient(previewUrl);
-
-    // Create or get OpenCode session
-    let opencodeSessionId = fs.opencodeSessionId;
-    if (!opencodeSessionId) {
-      const opencodeSession = await opencode.createSession({
-        systemPrompt,
-      });
-      opencodeSessionId = opencodeSession.id;
-
-      // Save OpenCode session ID
-      await db
-        .update(featureSessions)
-        .set({
-          opencodeSessionId,
-          status: "building",
-          updatedAt: new Date(),
-        })
-        .where(eq(featureSessions.id, sessionId));
-    }
+    // Update session status to building
+    await db
+      .update(featureSessions)
+      .set({
+        status: "building",
+        updatedAt: new Date(),
+      })
+      .where(eq(featureSessions.id, sessionId));
 
     // Create SSE stream
     const encoder = new TextEncoder();
@@ -122,47 +117,63 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const assistantMessageId = generateId("msg");
 
         try {
-          // Send initial event
+          // Send initial event with provider info
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "start", messageId: assistantMessageId })}\n\n`
+              `data: ${JSON.stringify({
+                type: "start",
+                messageId: assistantMessageId,
+                provider: provider.type,
+              })}\n\n`
             )
           );
 
-          // Stream from OpenCode
-          for await (const event of opencode.sendMessage({
-            sessionId: opencodeSessionId!,
+          // Stream from agent provider
+          for await (const event of provider.sendMessage({
+            sessionId: sandbox.id,
+            workspaceId: sandbox.daytonaWorkspaceId!,
             content,
-            systemPrompt,
           })) {
-            if (event.type === "message" && event.data.content) {
-              fullContent += event.data.content;
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: "chunk", content: event.data.content })}\n\n`
-                )
-              );
-            } else if (event.type === "tool_call" && event.data.toolCall) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: "tool_call", toolCall: event.data.toolCall })}\n\n`
-                )
-              );
-            } else if (event.type === "tool_result" && event.data.toolCall) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: "tool_result", toolCall: event.data.toolCall })}\n\n`
-                )
-              );
-            } else if (event.type === "error") {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: "error", error: event.data.error })}\n\n`
-                )
-              );
-            } else if (event.type === "done") {
+            if (event.type === "done") {
               break;
             }
+
+            if (event.type === "error") {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "error", error: event.content })}\n\n`
+                )
+              );
+              continue;
+            }
+
+            if (event.type === "preview_url") {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "preview_url", url: event.content })}\n\n`
+                )
+              );
+              continue;
+            }
+
+            // Accumulate content for database (only for message-like events)
+            if (
+              event.content &&
+              ["message", "plan", "question", "progress"].includes(event.type)
+            ) {
+              fullContent += event.content + "\n";
+            }
+
+            // Send event to client
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: event.type,
+                  content: event.content,
+                  metadata: event.metadata,
+                })}\n\n`
+              )
+            );
           }
 
           // Save assistant message to database
@@ -171,7 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               id: assistantMessageId,
               sessionId,
               role: "assistant",
-              content: fullContent,
+              content: fullContent.trim(),
               createdAt: new Date(),
             });
           }
@@ -198,6 +209,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               `data: ${JSON.stringify({ type: "error", error: String(error) })}\n\n`
             )
           );
+
+          // Update session status to error
+          await db
+            .update(featureSessions)
+            .set({
+              status: "error",
+              updatedAt: new Date(),
+            })
+            .where(eq(featureSessions.id, sessionId));
         } finally {
           controller.close();
         }

@@ -13,12 +13,13 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.1",
     "@base-ui/react": "^1.0.0",
-    "@daytonaio/sdk": "^0.128.1",
+    "@daytonaio/sdk": "^0.129.0",
     "@hugeicons/core-free-icons": "^3.1.1",
     "@hugeicons/react": "^1.1.4",
     "@neondatabase/serverless": "^1.0.2",
-    "@opencode-ai/sdk": "^1.1.6",
+    "@opencode-ai/sdk": "^1.1.7",
     "ably": "^2.6.2",
     "better-auth": "^1.4.10",
     "class-variance-authority": "^0.7.1",

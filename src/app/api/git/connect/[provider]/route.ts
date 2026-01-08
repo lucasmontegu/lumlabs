@@ -45,10 +45,11 @@ export async function GET(
   // Generate state token for CSRF protection
   const state = crypto.randomUUID();
 
-  // Get workspace slug from query params for redirect after callback
+  // Get workspace slug or returnTo from query params for redirect after callback
   const workspaceSlug = request.nextUrl.searchParams.get("workspace") || "";
+  const returnTo = request.nextUrl.searchParams.get("returnTo") || "";
 
-  // Store state and workspace in cookie
+  // Store state, workspace, and returnTo in cookie
   const cookieStore = await cookies();
   cookieStore.set("git_oauth_state", state, {
     httpOnly: true,
@@ -59,6 +60,14 @@ export async function GET(
   });
 
   cookieStore.set("git_oauth_workspace", workspaceSlug, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 10,
+    path: "/",
+  });
+
+  cookieStore.set("git_oauth_return_to", returnTo, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

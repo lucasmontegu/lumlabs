@@ -57,15 +57,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         const workspace = await daytona.getWorkspace(
           result[0].sandbox.daytonaWorkspaceId
         );
-        liveStatus = workspace.status;
-        previewUrl = workspace.previewUrl;
+        if (workspace) {
+          liveStatus = workspace.status;
+          previewUrl = workspace.previewUrl;
 
-        // Update status in DB if changed
-        if (workspace.status !== result[0].sandbox.status) {
-          await db
-            .update(sandboxes)
-            .set({ status: workspace.status })
-            .where(eq(sandboxes.id, sandboxId));
+          // Update status in DB if changed
+          if (workspace.status !== result[0].sandbox.status) {
+            await db
+              .update(sandboxes)
+              .set({ status: workspace.status })
+              .where(eq(sandboxes.id, sandboxId));
+          }
         }
       } catch {
         // Daytona API might be unavailable, use cached status

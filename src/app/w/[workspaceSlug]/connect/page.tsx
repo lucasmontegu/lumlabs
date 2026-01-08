@@ -62,6 +62,7 @@ export default function ConnectPage() {
           url: repo.url,
           provider,
           defaultBranch: branch,
+          slug: workspaceSlug,
         }),
       });
 
