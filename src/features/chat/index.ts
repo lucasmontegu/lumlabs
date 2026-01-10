@@ -18,4 +18,5 @@ export { PlanCard } from "./components/plan-card";
 export type { PlanItem, PlanData } from "./components/plan-card";
 export { BuildingProgress } from "./components/building-progress";
 export type { FileChange } from "./components/building-progress";
+export { ReadyCard } from "./components/ready-card";
 export { QuestionCard } from "./components/question-card";
