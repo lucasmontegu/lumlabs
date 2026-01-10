@@ -9,6 +9,7 @@ import { useSessionStore, SessionStatus } from "../stores/session-store";
 const statusLabels: Record<SessionStatus, string> = {
   idle: "Ready",
   planning: "Planning...",
+  plan_review: "Review Plan",
   building: "Building...",
   reviewing: "Reviewing...",
   ready: "Complete",
@@ -18,6 +19,7 @@ const statusLabels: Record<SessionStatus, string> = {
 const statusColors: Record<SessionStatus, string> = {
   idle: "text-muted-foreground",
   planning: "text-yellow-500",
+  plan_review: "text-orange-500",
   building: "text-blue-500",
   reviewing: "text-purple-500",
   ready: "text-green-500",

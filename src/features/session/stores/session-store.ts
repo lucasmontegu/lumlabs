@@ -3,6 +3,7 @@ import { create } from "zustand";
 export type SessionStatus =
   | "idle"
   | "planning"
+  | "plan_review"  // Waiting for user approval of plan
   | "building"
   | "reviewing"
   | "ready"

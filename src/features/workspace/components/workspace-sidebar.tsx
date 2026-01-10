@@ -70,6 +70,7 @@ function groupSessionsByDate(sessions: FeatureSession[]) {
 const statusColors = {
   idle: "bg-muted-foreground",
   planning: "bg-yellow-500",
+  plan_review: "bg-orange-500",
   building: "bg-blue-500",
   reviewing: "bg-purple-500",
   ready: "bg-green-500",
