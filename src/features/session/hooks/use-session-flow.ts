@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSessionStore } from "../stores/session-store";
 import { useChatStore, type Message, type Approval } from "@/features/chat";
 import type { PlanData } from "@/features/chat/components/plan-card";
@@ -13,15 +13,29 @@ interface UseSessionFlowReturn {
   // State
   isGeneratingPlan: boolean;
   isApproving: boolean;
+  isBuilding: boolean;
+  isCreatingPR: boolean;
   error: string | null;
+  previewUrl: string | null;
+  changedFiles: string[];
 
   // Actions
   generatePlan: (request: string) => Promise<void>;
   approvePlan: (comment?: string) => Promise<void>;
   rejectPlan: (comment?: string) => Promise<void>;
+  startBuild: () => Promise<void>;
+  createPR: (options?: { title?: string; description?: string }) => Promise<{ url: string; number: number } | null>;
 
   // Helpers
   clearError: () => void;
+}
+
+interface BuildStreamEvent {
+  type: string;
+  content: string;
+  phase?: string;
+  metadata?: Record<string, unknown>;
+  timestamp?: number;
 }
 
 export function useSessionFlow({
@@ -29,7 +43,13 @@ export function useSessionFlow({
 }: UseSessionFlowOptions): UseSessionFlowReturn {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [changedFiles, setChangedFiles] = useState<string[]>([]);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { updateSession } = useSessionStore();
   const { addMessage, addApproval, updateApproval } = useChatStore();
@@ -219,15 +239,200 @@ export function useSessionFlow({
     [sessionId, updateSession, updateApproval, addMessage]
   );
 
+  /**
+   * Start the build phase after plan approval
+   */
+  const startBuild = useCallback(async () => {
+    setIsBuilding(true);
+    setError(null);
+    setChangedFiles([]);
+
+    // Cancel any existing stream
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      updateSession(sessionId, { status: "building" });
+
+      const response = await fetch(`/api/sessions/${sessionId}/build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to start build");
+      }
+
+      // Handle SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const event: BuildStreamEvent = JSON.parse(line.slice(6));
+              handleBuildEvent(event);
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : "Build failed";
+      setError(message);
+      updateSession(sessionId, { status: "error" });
+    } finally {
+      setIsBuilding(false);
+      abortControllerRef.current = null;
+    }
+  }, [sessionId, updateSession, addMessage]);
+
+  /**
+   * Handle individual build stream events
+   */
+  const handleBuildEvent = useCallback(
+    (event: BuildStreamEvent) => {
+      switch (event.type) {
+        case "phase_change":
+          if (event.phase) {
+            updateSession(sessionId, { status: event.phase as "building" | "ready" });
+          }
+          break;
+
+        case "preview_url":
+          setPreviewUrl(event.content);
+          break;
+
+        case "file_change":
+          if (event.metadata?.path) {
+            setChangedFiles((prev: string[]) => [...prev, event.metadata!.path as string]);
+          }
+          addMessage(sessionId, {
+            id: `file_${Date.now()}`,
+            sessionId,
+            role: "system",
+            content: event.content,
+            phase: "building",
+            metadata: event.metadata,
+            createdAt: new Date(),
+          });
+          break;
+
+        case "progress":
+          addMessage(sessionId, {
+            id: `prog_${Date.now()}`,
+            sessionId,
+            role: "system",
+            content: event.content,
+            phase: "building",
+            createdAt: new Date(),
+          });
+          break;
+
+        case "error":
+          setError(event.content);
+          break;
+
+        case "done":
+          updateSession(sessionId, { status: "ready" });
+          addMessage(sessionId, {
+            id: `done_${Date.now()}`,
+            sessionId,
+            role: "system",
+            content: "Build completed successfully!",
+            phase: "building",
+            createdAt: new Date(),
+          });
+          break;
+      }
+    },
+    [sessionId, updateSession, addMessage]
+  );
+
+  /**
+   * Create a pull request from the session's changes
+   */
+  const createPR = useCallback(
+    async (options?: { title?: string; description?: string }) => {
+      setIsCreatingPR(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/sessions/${sessionId}/pr`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(options || {}),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to create PR");
+        }
+
+        const data = await response.json();
+
+        // Add system message about PR creation
+        addMessage(sessionId, {
+          id: `pr_${Date.now()}`,
+          sessionId,
+          role: "system",
+          content: `Pull request created: ${data.pr.url}`,
+          metadata: { prUrl: data.pr.url, prNumber: data.pr.number },
+          createdAt: new Date(),
+        });
+
+        return { url: data.pr.url, number: data.pr.number };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to create PR";
+        setError(message);
+        return null;
+      } finally {
+        setIsCreatingPR(false);
+      }
+    },
+    [sessionId, addMessage]
+  );
+
   const clearError = useCallback(() => setError(null), []);
 
   return {
     isGeneratingPlan,
     isApproving,
+    isBuilding,
+    isCreatingPR,
     error,
+    previewUrl,
+    changedFiles,
     generatePlan,
     approvePlan,
     rejectPlan,
+    startBuild,
+    createPR,
     clearError,
   };
 }

@@ -507,6 +507,81 @@ export const approvalsRelations = relations(approvals, ({ one }) => ({
 }));
 
 // ============================================================================
+// SKILLS SYSTEM
+// ============================================================================
+
+// Skills for agent context injection
+export const skills = pgTable(
+  "skills",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    content: text("content").notNull(), // Markdown instructions for agent
+    triggers: jsonb("triggers").$type<string[]>(), // Keywords that activate this skill
+    authorType: text("author_type").default("organization").notNull(), // platform/organization/user
+    isActive: boolean("is_active").default(true).notNull(),
+    version: text("version").default("1.0.0"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("skills_organizationId_idx").on(table.organizationId),
+    uniqueIndex("skills_slug_organizationId_uidx").on(table.slug, table.organizationId),
+  ]
+);
+
+// Skills assigned to repositories
+export const repositorySkills = pgTable(
+  "repository_skills",
+  {
+    id: text("id").primaryKey(),
+    repositoryId: text("repository_id")
+      .notNull()
+      .references(() => repositories.id, { onDelete: "cascade" }),
+    skillId: text("skill_id")
+      .notNull()
+      .references(() => skills.id, { onDelete: "cascade" }),
+    priority: text("priority").default("normal"), // low/normal/high - affects prompt ordering
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("repositorySkills_repositoryId_idx").on(table.repositoryId),
+    index("repositorySkills_skillId_idx").on(table.skillId),
+    uniqueIndex("repositorySkills_repo_skill_uidx").on(
+      table.repositoryId,
+      table.skillId
+    ),
+  ]
+);
+
+export const skillsRelations = relations(skills, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [skills.organizationId],
+    references: [organizations.id],
+  }),
+  repositorySkills: many(repositorySkills),
+}));
+
+export const repositorySkillsRelations = relations(repositorySkills, ({ one }) => ({
+  repository: one(repositories, {
+    fields: [repositorySkills.repositoryId],
+    references: [repositories.id],
+  }),
+  skill: one(skills, {
+    fields: [repositorySkills.skillId],
+    references: [skills.id],
+  }),
+}));
+
+// ============================================================================
 // ONBOARDING
 // ============================================================================
 
