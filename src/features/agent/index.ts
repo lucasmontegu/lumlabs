@@ -19,6 +19,14 @@ export {
   type SandboxInfo,
 } from "./daytona-service";
 
+// Claude Agent for plan generation
+export {
+  generatePlan,
+  streamBuildProgress,
+  type PlanResult,
+  type AgentContext,
+} from "./claude-agent";
+
 // Agent message types (for typing stream responses)
 export type AgentMessageType =
   | "thinking"
