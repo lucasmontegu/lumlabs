@@ -4,12 +4,30 @@ import * as React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { UserIcon, RobotIcon, Alert02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
-import { type Message, type MessagePhase } from "../stores/chat-store";
+import { type Message, type MessagePhase, type Approval } from "../stores/chat-store";
+import { PlanCard, type PlanData } from "./plan-card";
+import { BuildingProgress, type FileChange } from "./building-progress";
+import { ReadyCard } from "./ready-card";
 
 interface ChatMessagesProps {
   messages: Message[];
   streamingContent?: string;
   isStreaming?: boolean;
+  // For plan approval flow
+  pendingApproval?: Approval | null;
+  onApprovePlan?: () => void;
+  onAdjustPlan?: () => void;
+  isApprovingPlan?: boolean;
+  // For building progress
+  buildingFiles?: FileChange[];
+  currentBuildingFile?: string;
+  isBuildComplete?: boolean;
+  // For ready state
+  filesChanged?: string[];
+  onCreatePR?: () => void;
+  onIterate?: () => void;
+  isCreatingPR?: boolean;
+  prUrl?: string;
 }
 
 const phaseLabels: Record<MessagePhase, string> = {
@@ -23,6 +41,34 @@ const phaseColors: Record<MessagePhase, string> = {
   building: "bg-blue-500/10 text-blue-600",
   review: "bg-purple-500/10 text-purple-600",
 };
+
+/**
+ * Parse plan data from a plan message
+ */
+function parsePlanData(message: Message): PlanData | null {
+  if (message.type !== "plan") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(message.content);
+    return {
+      summary: parsed.summary || "",
+      changes: (parsed.changes || []).map(
+        (c: { description: string; files?: string[] }) => ({
+          description: c.description,
+          files: c.files,
+        })
+      ),
+      considerations: parsed.considerations,
+    };
+  } catch {
+    return {
+      summary: message.content.slice(0, 200),
+      changes: [{ description: "Review the plan details" }],
+    };
+  }
+}
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
@@ -128,6 +174,21 @@ export function ChatMessages({
   messages,
   streamingContent,
   isStreaming,
+  // Plan approval
+  pendingApproval,
+  onApprovePlan,
+  onAdjustPlan,
+  isApprovingPlan,
+  // Building progress
+  buildingFiles,
+  currentBuildingFile,
+  isBuildComplete,
+  // Ready state
+  filesChanged,
+  onCreatePR,
+  onIterate,
+  isCreatingPR,
+  prUrl,
 }: ChatMessagesProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -152,11 +213,84 @@ export function ChatMessages({
     );
   }
 
+  /**
+   * Render a message based on its type
+   */
+  const renderMessage = (message: Message) => {
+    // Plan message - render PlanCard
+    if (message.type === "plan") {
+      const planData = parsePlanData(message);
+      if (planData) {
+        // Determine approval status for this plan
+        const approvalStatus =
+          pendingApproval?.messageId === message.id
+            ? pendingApproval.status
+            : "pending";
+
+        return (
+          <div key={message.id} className="flex gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+              <HugeiconsIcon icon={RobotIcon} className="size-4" />
+            </div>
+            <div className="flex-1 max-w-[85%]">
+              <PlanCard
+                plan={planData}
+                status={approvalStatus as "pending" | "approved" | "rejected"}
+                onApprove={onApprovePlan}
+                onAdjust={onAdjustPlan}
+                isLoading={isApprovingPlan}
+              />
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // Building progress message - render BuildingProgress
+    if (message.type === "building_progress") {
+      return (
+        <div key={message.id} className="flex gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+            <HugeiconsIcon icon={RobotIcon} className="size-4" />
+          </div>
+          <div className="flex-1 max-w-[85%]">
+            <BuildingProgress
+              files={buildingFiles || []}
+              currentFile={currentBuildingFile}
+              isComplete={isBuildComplete}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Ready message - render ReadyCard
+    if (message.type === "ready") {
+      return (
+        <div key={message.id} className="flex gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+            <HugeiconsIcon icon={RobotIcon} className="size-4" />
+          </div>
+          <div className="flex-1 max-w-[85%]">
+            <ReadyCard
+              filesChanged={filesChanged || []}
+              onCreatePR={onCreatePR}
+              onIterate={onIterate}
+              isLoading={isCreatingPR}
+              prUrl={prUrl}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Default: render as regular message bubble
+    return <MessageBubble key={message.id} message={message} />;
+  };
+
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-      {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
-      ))}
+      {messages.map(renderMessage)}
       {isStreaming && streamingContent && (
         <StreamingMessage content={streamingContent} />
       )}
