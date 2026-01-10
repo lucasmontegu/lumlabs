@@ -4,10 +4,17 @@ import * as React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { UserIcon, RobotIcon, Alert02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
-import { type Message, type MessagePhase, type Approval } from "../stores/chat-store";
+import { type Message, type MessagePhase, type Approval, type Mention } from "../stores/chat-store";
 import { PlanCard, type PlanData } from "./plan-card";
 import { BuildingProgress, type FileChange } from "./building-progress";
 import { ReadyCard } from "./ready-card";
+import { MentionBadge } from "./mention-popover";
+
+interface TypingUser {
+  userId: string;
+  userName: string;
+  userImage?: string;
+}
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -28,6 +35,10 @@ interface ChatMessagesProps {
   onIterate?: () => void;
   isCreatingPR?: boolean;
   prUrl?: string;
+  // Typing indicators
+  typingUsers?: TypingUser[];
+  // Mention click handler
+  onMentionClick?: (mention: Mention) => void;
 }
 
 const phaseLabels: Record<MessagePhase, string> = {
@@ -70,7 +81,69 @@ function parsePlanData(message: Message): PlanData | null {
   }
 }
 
-function MessageBubble({ message }: { message: Message }) {
+/**
+ * Render message content with @mention highlighting
+ */
+function renderContentWithMentions(
+  content: string,
+  mentions?: Mention[],
+  onMentionClick?: (mention: Mention) => void
+): React.ReactNode {
+  if (!mentions || mentions.length === 0) {
+    return content;
+  }
+
+  // Find @mentions in content and highlight them
+  const mentionPattern = /@(\w+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionPattern.exec(content)) !== null) {
+    const mentionName = match[1];
+    const matchedMention = mentions.find(
+      (m) =>
+        (m.userName && m.userName.toLowerCase().replace(/\s+/g, "") === mentionName.toLowerCase()) ||
+        (m.agentType && m.agentType.toLowerCase() === mentionName.toLowerCase())
+    );
+
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+
+    // Add the mention (highlighted or plain)
+    if (matchedMention) {
+      parts.push(
+        <MentionBadge
+          key={`mention-${match.index}`}
+          name={matchedMention.userName || matchedMention.agentType || mentionName}
+          type={matchedMention.type}
+          onClick={() => onMentionClick?.(matchedMention)}
+          className="mx-0.5"
+        />
+      );
+    } else {
+      parts.push(match[0]);
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : content;
+}
+
+interface MessageBubbleProps {
+  message: Message;
+  onMentionClick?: (mention: Mention) => void;
+}
+
+function MessageBubble({ message, onMentionClick }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
 
@@ -117,6 +190,20 @@ function MessageBubble({ message }: { message: Message }) {
           </span>
         )}
 
+        {/* Mentions indicator */}
+        {message.mentions && message.mentions.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {message.mentions.map((mention, idx) => (
+              <MentionBadge
+                key={`m-${idx}`}
+                name={mention.userName || mention.agentType || "unknown"}
+                type={mention.type}
+                onClick={() => onMentionClick?.(mention)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Message content */}
         <div
           className={cn(
@@ -128,7 +215,9 @@ function MessageBubble({ message }: { message: Message }) {
                 : "bg-muted text-foreground"
           )}
         >
-          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          <p className="whitespace-pre-wrap text-sm">
+            {renderContentWithMentions(message.content, message.mentions, onMentionClick)}
+          </p>
         </div>
 
         {/* Metadata */}
@@ -150,6 +239,47 @@ function MessageBubble({ message }: { message: Message }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Typing indicator component
+ */
+function TypingIndicator({ users }: { users: TypingUser[] }) {
+  if (users.length === 0) return null;
+
+  const names = users.map((u) => u.userName).join(", ");
+  const verb = users.length === 1 ? "is" : "are";
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+      <div className="flex -space-x-2">
+        {users.slice(0, 3).map((user) => (
+          <div
+            key={user.userId}
+            className="flex size-6 items-center justify-center rounded-full bg-muted border-2 border-background text-xs font-medium"
+          >
+            {user.userImage ? (
+              <img
+                src={user.userImage}
+                alt={user.userName}
+                className="size-full rounded-full"
+              />
+            ) : (
+              user.userName.charAt(0).toUpperCase()
+            )}
+          </div>
+        ))}
+      </div>
+      <span>
+        {names} {verb} typing
+      </span>
+      <span className="flex gap-0.5">
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
+        <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
+      </span>
     </div>
   );
 }
@@ -189,6 +319,9 @@ export function ChatMessages({
   onIterate,
   isCreatingPR,
   prUrl,
+  // Typing & mentions
+  typingUsers = [],
+  onMentionClick,
 }: ChatMessagesProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -285,7 +418,13 @@ export function ChatMessages({
     }
 
     // Default: render as regular message bubble
-    return <MessageBubble key={message.id} message={message} />;
+    return (
+      <MessageBubble
+        key={message.id}
+        message={message}
+        onMentionClick={onMentionClick}
+      />
+    );
   };
 
   return (
@@ -294,6 +433,7 @@ export function ChatMessages({
       {isStreaming && streamingContent && (
         <StreamingMessage content={streamingContent} />
       )}
+      {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
       <div ref={messagesEndRef} />
     </div>
   );

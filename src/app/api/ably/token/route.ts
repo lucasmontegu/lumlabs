@@ -19,8 +19,12 @@ export async function POST() {
 
     // Build capabilities based on user's organization
     const capability: Record<string, capabilityOp[]> = {
-      // Always allow subscribing to session channels
-      "session:*:*": ["subscribe"],
+      // Allow subscribing to session channels
+      "session:*:stream": ["subscribe"],
+      "session:*:status": ["subscribe"],
+      "session:*:approvals": ["subscribe"],
+      // Allow publishing and subscribing to chat channels (for realtime messaging)
+      "session:*:chat": ["publish", "subscribe"],
     };
 
     // If user has an active organization, allow presence
@@ -28,7 +32,10 @@ export async function POST() {
       capability[`workspace:${organizationId}:presence`] = [
         "presence",
         "subscribe",
+        "publish",
       ];
+      // Allow notifications for mentions
+      capability[`user:${session.user.id}:notifications`] = ["subscribe"];
     }
 
     // Generate token request with user ID as client ID

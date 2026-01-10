@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { db, messages, featureSessions } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
 import { generateId } from "@/lib/id";
+import { ablyServer } from "@/lib/ably";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
@@ -126,6 +127,46 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .update(featureSessions)
       .set({ updatedAt: new Date() })
       .where(eq(featureSessions.id, sessionId));
+
+    // Broadcast message to other users via Ably (only for user messages)
+    if (role === "user") {
+      try {
+        await ablyServer.publishChatMessage(sessionId, {
+          id: newMessage.id,
+          userId: session.user.id,
+          userName: session.user.name || "Anonymous",
+          userImage: session.user.image || undefined,
+          role: "user",
+          content,
+          mentions,
+          metadata,
+        });
+
+        // Send mention notifications to mentioned users
+        if (mentions && Array.isArray(mentions) && mentions.length > 0) {
+          const userMentions = mentions.filter(
+            (m: { type: string; userId?: string }) =>
+              m.type === "user" && m.userId && m.userId !== session.user.id
+          );
+
+          for (const mention of userMentions) {
+            if (mention.userId) {
+              await ablyServer.publishMentionNotification(mention.userId, {
+                sessionId,
+                sessionName: featureSession[0].name,
+                mentionedBy: session.user.name || "Someone",
+                mentionedByImage: session.user.image || undefined,
+                messagePreview: content.slice(0, 100),
+                timestamp: newMessage.createdAt.toISOString(),
+              });
+            }
+          }
+        }
+      } catch (ablyError) {
+        // Log but don't fail the request if Ably broadcasting fails
+        console.error("Failed to broadcast message via Ably:", ablyError);
+      }
+    }
 
     return NextResponse.json({ message: newMessage }, { status: 201 });
   } catch (error) {

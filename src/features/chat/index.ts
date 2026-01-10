@@ -20,3 +20,15 @@ export { BuildingProgress } from "./components/building-progress";
 export type { FileChange } from "./components/building-progress";
 export { ReadyCard } from "./components/ready-card";
 export { QuestionCard } from "./components/question-card";
+
+// Mentions
+export { MentionPopover, MentionBadge } from "./components/mention-popover";
+export {
+  parseMentions,
+  DEFAULT_AGENTS,
+  renderMentionText,
+  type MentionableUser,
+  type MentionableAgent,
+  type Mentionable,
+  type MentionData,
+} from "./lib/mentions";

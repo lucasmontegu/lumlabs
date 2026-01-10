@@ -7,7 +7,8 @@ export type MessagePhase = "planning" | "building" | "review";
 export interface Mention {
   type: "user" | "agent" | "integration";
   userId?: string;
-  agentType?: "reviewer" | "security" | "ux";
+  userName?: string;
+  agentType?: "reviewer" | "security" | "ux" | "planner";
   integrationId?: string;
 }
 

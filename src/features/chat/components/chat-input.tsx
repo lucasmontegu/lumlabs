@@ -13,6 +13,7 @@ import {
   MagicWand01Icon,
   RepositoryIcon,
   GitBranchIcon,
+  UserIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,30 +26,52 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/features/workspace/stores/workspace-store";
+import { MentionPopover, MentionBadge } from "./mention-popover";
+import {
+  type Mentionable,
+  type MentionData,
+  parseMentions,
+  DEFAULT_AGENTS,
+} from "../lib/mentions";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, mentions?: MentionData[]) => void;
   disabled?: boolean;
   placeholder?: string;
   branches?: string[];
   showSelectors?: boolean;
+  // Mention support
+  workspaceMembers?: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    image?: string;
+  }>;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function ChatInput({
   onSend,
   disabled,
-  placeholder = "Ask anything",
+  placeholder = "Ask anything or @mention someone",
   branches = [],
   showSelectors = true,
+  workspaceMembers = [],
+  onTypingChange,
 }: ChatInputProps) {
   const [value, setValue] = React.useState("");
   const [autoMode, setAutoMode] = React.useState(false);
+  const [showMentionPopover, setShowMentionPopover] = React.useState(false);
+  const [mentionQuery, setMentionQuery] = React.useState("");
+  const [mentions, setMentions] = React.useState<Mentionable[]>([]);
+  const [cursorPosition, setCursorPosition] = React.useState(0);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const {
     repositories,
-    selectedRepoId,
     selectedBranch,
     setSelectedRepo,
     setSelectedBranch,
@@ -56,6 +79,19 @@ export function ChatInput({
   } = useWorkspaceStore();
 
   const selectedRepo = getSelectedRepo();
+
+  // Convert workspace members to mentionable format
+  const mentionableUsers: Mentionable[] = React.useMemo(
+    () =>
+      workspaceMembers.map((m) => ({
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        image: m.image,
+        type: "user" as const,
+      })),
+    [workspaceMembers]
+  );
 
   // Get available branches for selected repo
   const availableBranches =
@@ -65,12 +101,64 @@ export function ChatInput({
         ? [selectedRepo.defaultBranch || "main"]
         : [];
 
+  // Handle typing indicator
+  const handleTyping = React.useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    onTypingChange?.(true);
+
+    typingTimeoutRef.current = setTimeout(() => {
+      onTypingChange?.(false);
+    }, 2000);
+  }, [onTypingChange]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!value.trim() || disabled) return;
 
-    onSend(value.trim());
+    // Parse mentions from the message
+    const { mentions: parsedMentions } = parseMentions(value, [
+      ...mentionableUsers,
+      ...DEFAULT_AGENTS,
+    ]);
+
+    // Add selected mentions from popover
+    const allMentions: MentionData[] = [
+      ...parsedMentions,
+      ...mentions.map((m) => ({
+        type: m.type as "user" | "agent",
+        userId: m.type === "user" ? m.id : undefined,
+        userName: m.type === "user" ? m.name : undefined,
+        agentType:
+          m.type === "agent"
+            ? (m as { agentType: "reviewer" | "security" | "ux" | "planner" })
+                .agentType
+            : undefined,
+      })),
+    ];
+
+    // Deduplicate mentions
+    const uniqueMentions = allMentions.filter(
+      (m, i, arr) =>
+        arr.findIndex(
+          (x) =>
+            x.userId === m.userId &&
+            x.agentType === m.agentType &&
+            x.type === m.type
+        ) === i
+    );
+
+    onSend(value.trim(), uniqueMentions.length > 0 ? uniqueMentions : undefined);
     setValue("");
+    setMentions([]);
+
+    // Stop typing indicator
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    onTypingChange?.(false);
 
     // Reset textarea height
     if (textareaRef.current) {
@@ -83,6 +171,45 @@ export function ChatInput({
       e.preventDefault();
       handleSubmit(e);
     }
+
+    // Handle @ trigger for mentions
+    if (e.key === "@" && !showMentionPopover) {
+      // Get cursor position for popover placement
+      const pos = textareaRef.current?.selectionStart || 0;
+      setCursorPosition(pos);
+      setShowMentionPopover(true);
+      setMentionQuery("");
+    }
+
+    // Close mention popover on escape
+    if (e.key === "Escape" && showMentionPopover) {
+      setShowMentionPopover(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    handleTyping();
+
+    // Update mention query when popover is open
+    if (showMentionPopover) {
+      const cursorPos = e.target.selectionStart || 0;
+      const textBeforeCursor = newValue.slice(0, cursorPos);
+      const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+      if (lastAtIndex >= 0) {
+        const query = textBeforeCursor.slice(lastAtIndex + 1);
+        // Close popover if space or special character after @
+        if (query.includes(" ") || /[^a-zA-Z0-9_]/.test(query)) {
+          setShowMentionPopover(false);
+        } else {
+          setMentionQuery(query);
+        }
+      } else {
+        setShowMentionPopover(false);
+      }
+    }
   };
 
   const handleTextareaInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -91,10 +218,71 @@ export function ChatInput({
     target.style.height = target.scrollHeight + "px";
   };
 
+  // Handle mention selection
+  const handleMentionSelect = (mention: Mentionable) => {
+    // Add to selected mentions
+    setMentions((prev) => {
+      if (prev.find((m) => m.id === mention.id)) return prev;
+      return [...prev, mention];
+    });
+
+    // Replace the @query with @name in the text
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex >= 0) {
+      const textBefore = value.slice(0, lastAtIndex);
+      const textAfter = value.slice(cursorPosition + mentionQuery.length);
+      const mentionText = `@${mention.name.replace(/\s+/g, "")} `;
+      setValue(textBefore + mentionText + textAfter);
+
+      // Move cursor after the mention
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newPos = lastAtIndex + mentionText.length;
+          textareaRef.current.setSelectionRange(newPos, newPos);
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+
+    setShowMentionPopover(false);
+    setMentionQuery("");
+  };
+
+  // Remove a selected mention
+  const handleRemoveMention = (mentionId: string) => {
+    setMentions((prev) => prev.filter((m) => m.id !== mentionId));
+  };
+
+  // Cleanup typing timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="w-full max-w-xl mx-auto">
+      {/* Selected mentions badges */}
+      {mentions.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2 px-1">
+          {mentions.map((mention) => (
+            <MentionBadge
+              key={mention.id}
+              name={mention.name}
+              type={mention.type}
+              onClick={() => handleRemoveMention(mention.id)}
+              className="pr-1"
+            />
+          ))}
+        </div>
+      )}
+
       {/* Main Input Card */}
-      <div className="bg-background border border-border rounded-2xl overflow-hidden">
+      <div className="bg-background border border-border rounded-2xl overflow-hidden relative">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -104,13 +292,24 @@ export function ChatInput({
           onChange={() => {}}
         />
 
+        {/* Mention Popover */}
+        <MentionPopover
+          open={showMentionPopover}
+          onOpenChange={setShowMentionPopover}
+          onSelect={handleMentionSelect}
+          users={mentionableUsers}
+          searchQuery={mentionQuery}
+        >
+          <span />
+        </MentionPopover>
+
         {/* Textarea */}
         <div className="px-3 pt-3 pb-2 grow">
           <form onSubmit={handleSubmit}>
             <Textarea
               ref={textareaRef}
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={handleChange}
               onKeyDown={handleKeyDown}
               onInput={handleTextareaInput}
               placeholder={placeholder}
@@ -149,6 +348,16 @@ export function ChatInput({
                   >
                     <HugeiconsIcon icon={Attachment01Icon} className="size-4 opacity-60" />
                     Attach Files
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-[calc(1rem-6px)] text-xs"
+                    onClick={() => {
+                      setShowMentionPopover(true);
+                      setMentionQuery("");
+                    }}
+                  >
+                    <HugeiconsIcon icon={UserIcon} className="size-4 opacity-60" />
+                    Mention Someone
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="rounded-[calc(1rem-6px)] text-xs"

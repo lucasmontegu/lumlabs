@@ -4,24 +4,100 @@ import * as React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Time01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
-import { useChatStore } from "../stores/chat-store";
+import { useChatStore, type Mention, type Message } from "../stores/chat-store";
 import { useSessionStore } from "@/features/session";
 import { ChatMessages } from "./chat-messages";
 import { ChatInput } from "./chat-input";
 import { generateId } from "@/lib/id";
+import { useSession, useActiveOrganization } from "@/lib/auth-client";
+import { useChatRealtime } from "@/features/presence";
+import type { MentionData } from "../lib/mentions";
 
 interface ChatContainerProps {
   onToggleHistory?: () => void;
 }
 
+interface WorkspaceMember {
+  id: string;
+  name: string;
+  email?: string;
+  image?: string;
+}
+
 export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
+  const { data: authSession } = useSession();
+  const { data: activeOrg } = useActiveOrganization();
   const { activeSessionId } = useSessionStore();
   const {
     getMessages,
     addMessage,
     streamingContent,
     isStreaming,
+    getPendingApproval,
   } = useChatStore();
+
+  // State for workspace members (would typically come from API)
+  const [workspaceMembers, setWorkspaceMembers] = React.useState<WorkspaceMember[]>([]);
+
+  // Fetch workspace members when org changes
+  React.useEffect(() => {
+    if (!activeOrg?.id) {
+      setWorkspaceMembers([]);
+      return;
+    }
+
+    // TODO: Fetch from API - for now, include current user
+    if (authSession?.user) {
+      setWorkspaceMembers([
+        {
+          id: authSession.user.id,
+          name: authSession.user.name || "You",
+          email: authSession.user.email,
+          image: authSession.user.image || undefined,
+        },
+      ]);
+    }
+  }, [activeOrg?.id, authSession?.user]);
+
+  // Handle new messages from other users via realtime
+  const handleNewMessage = React.useCallback(
+    (data: {
+      id: string;
+      sessionId: string;
+      userId: string;
+      userName: string;
+      role: "user" | "assistant" | "system";
+      content: string;
+      mentions?: Mention[];
+      createdAt: string;
+    }) => {
+      if (!activeSessionId || data.sessionId !== activeSessionId) return;
+
+      // Add message from another user
+      const message: Message = {
+        id: data.id,
+        sessionId: data.sessionId,
+        userId: data.userId,
+        role: data.role,
+        content: data.content,
+        mentions: data.mentions,
+        createdAt: new Date(data.createdAt),
+      };
+
+      addMessage(activeSessionId, message);
+    },
+    [activeSessionId, addMessage]
+  );
+
+  // Use realtime chat for typing indicators and message broadcasting
+  const { typingUsers, broadcastTyping, broadcastMessage } = useChatRealtime({
+    sessionId: activeSessionId || "",
+    userId: authSession?.user?.id || "",
+    userName: authSession?.user?.name || "Anonymous",
+    userImage: authSession?.user?.image || undefined,
+    onNewMessage: handleNewMessage,
+    enabled: !!activeSessionId && !!authSession?.user,
+  });
 
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
   const currentStreamingContent = activeSessionId
@@ -30,34 +106,71 @@ export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
   const currentIsStreaming = activeSessionId
     ? isStreaming[activeSessionId] || false
     : false;
+  const pendingApproval = activeSessionId
+    ? getPendingApproval(activeSessionId)
+    : undefined;
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, mentions?: MentionData[]) => {
     if (!activeSessionId) return;
 
+    const messageId = generateId("msg");
+
+    // Convert MentionData to Mention format
+    const messageMentions: Mention[] | undefined = mentions?.map((m) => ({
+      type: m.type,
+      userId: m.userId,
+      agentType: m.agentType,
+    }));
+
     // Add user message locally
-    const userMessage = {
-      id: generateId("msg"),
+    const userMessage: Message = {
+      id: messageId,
       sessionId: activeSessionId,
-      role: "user" as const,
+      userId: authSession?.user?.id,
+      role: "user",
       content,
+      mentions: messageMentions,
       createdAt: new Date(),
     };
     addMessage(activeSessionId, userMessage);
 
+    // Broadcast to other users via realtime
+    broadcastMessage({
+      id: messageId,
+      content,
+      mentions: messageMentions,
+    });
+
     // TODO: Send to API and handle streaming response
     // For now, simulate a response
     setTimeout(() => {
-      const assistantMessage = {
+      const assistantMessage: Message = {
         id: generateId("msg"),
         sessionId: activeSessionId,
-        role: "assistant" as const,
+        role: "assistant",
         content: `I understand you want to: "${content}"\n\nLet me analyze this request and create a plan for you.`,
-        phase: "planning" as const,
+        phase: "planning",
         createdAt: new Date(),
       };
       addMessage(activeSessionId, assistantMessage);
     }, 1000);
   };
+
+  // Handle typing change from input
+  const handleTypingChange = React.useCallback(
+    (isTyping: boolean) => {
+      if (isTyping) {
+        broadcastTyping();
+      }
+    },
+    [broadcastTyping]
+  );
+
+  // Handle mention click (could open user profile, etc.)
+  const handleMentionClick = React.useCallback((mention: Mention) => {
+    console.log("Mention clicked:", mention);
+    // TODO: Navigate to user profile or trigger agent action
+  }, []);
 
   if (!activeSessionId) {
     return (
@@ -86,10 +199,18 @@ export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
         messages={messages}
         streamingContent={currentStreamingContent}
         isStreaming={currentIsStreaming}
+        pendingApproval={pendingApproval}
+        typingUsers={typingUsers}
+        onMentionClick={handleMentionClick}
       />
 
       {/* Input */}
-      <ChatInput onSend={handleSendMessage} disabled={currentIsStreaming} />
+      <ChatInput
+        onSend={handleSendMessage}
+        disabled={currentIsStreaming}
+        workspaceMembers={workspaceMembers}
+        onTypingChange={handleTypingChange}
+      />
     </div>
   );
 }
