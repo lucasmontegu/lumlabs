@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type MessageRole = "user" | "assistant" | "system";
+export type MessageType = "text" | "plan" | "building_progress" | "ready";
 export type MessagePhase = "planning" | "building" | "review";
 
 export interface Mention {
@@ -15,6 +16,7 @@ export interface Message {
   sessionId: string;
   userId?: string;
   role: MessageRole;
+  type?: MessageType;  // For special message rendering (plan, progress, ready)
   content: string;
   phase?: MessagePhase;
   mentions?: Mention[];
