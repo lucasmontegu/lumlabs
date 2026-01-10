@@ -16,4 +16,6 @@ export { ChatInput } from "./components/chat-input";
 export { EmptyChat } from "./components/empty-chat";
 export { PlanCard } from "./components/plan-card";
 export type { PlanItem, PlanData } from "./components/plan-card";
+export { BuildingProgress } from "./components/building-progress";
+export type { FileChange } from "./components/building-progress";
 export { QuestionCard } from "./components/question-card";
