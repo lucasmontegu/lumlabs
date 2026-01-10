@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db, gitConnections, onboardingState } from "@/db";
+import { db, gitConnections, onboardingState, organizations } from "@/db";
 import { eq } from "drizzle-orm";
 import { SelectRepoPageClient } from "./page-client";
 
@@ -14,6 +14,23 @@ export default async function OnboardingSelectRepoPage() {
     redirect("/login");
   }
 
+  // Get the organization slug
+  const orgId = session.session.activeOrganizationId;
+  let workspaceSlug: string | null = null;
+
+  if (orgId) {
+    const [org] = await db
+      .select({ slug: organizations.slug })
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1);
+    workspaceSlug = org?.slug ?? null;
+  }
+
+  if (!workspaceSlug) {
+    redirect("/");
+  }
+
   // Check onboarding state
   const [existingOnboarding] = await db
     .select()
@@ -22,9 +39,7 @@ export default async function OnboardingSelectRepoPage() {
     .limit(1);
 
   if (existingOnboarding?.step === "completed") {
-    // Get the organization slug for redirect
-    const orgSlug = session.session.activeOrganizationId || "default";
-    redirect(`/w/${orgSlug}`);
+    redirect(`/w/${workspaceSlug}`);
   }
 
   // Get connected providers
@@ -49,12 +64,11 @@ export default async function OnboardingSelectRepoPage() {
   }
 
   const connectedProviders = connections.map((c) => c.provider);
-  const organizationId = session.session.activeOrganizationId!;
 
   return (
     <SelectRepoPageClient
       connectedProviders={connectedProviders}
-      organizationId={organizationId}
+      workspaceSlug={workspaceSlug}
     />
   );
 }

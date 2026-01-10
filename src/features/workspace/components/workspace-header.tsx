@@ -2,33 +2,44 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Notification02Icon, UserIcon } from "@hugeicons/core-free-icons";
-import { Button } from "@/components/ui/button";
+import { UserIcon } from "@hugeicons/core-free-icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-interface WorkspaceHeaderProps {
-  title?: string;
-  children?: React.ReactNode;
-}
+export function WorkspaceHeader() {
+  const params = useParams();
+  const workspaceSlug = params.workspaceSlug as string;
 
-export function WorkspaceHeader({ title, children }: WorkspaceHeaderProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-6">
-      <div className="flex items-center gap-4">
-        {title && <h1 className="text-lg font-semibold">{title}</h1>}
-        {children}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm">
-          <HugeiconsIcon icon={Notification02Icon} className="size-4" />
-        </Button>
-        <Link href="/settings/profile">
-          <Button variant="ghost" size="icon-sm">
-            <HugeiconsIcon icon={UserIcon} className="size-4" />
-          </Button>
-        </Link>
-      </div>
+    <header className="flex h-14 shrink-0 items-center justify-end border-b border-border bg-background px-4">
+      {/* User menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <HugeiconsIcon icon={UserIcon} className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem>
+            <Link href={`/w/${workspaceSlug}/settings`} className="flex-1">
+              Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Link href="/api/auth/sign-out" className="flex-1">
+              Cerrar sesión
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }

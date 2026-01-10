@@ -12,12 +12,12 @@ import {
 
 interface SelectRepoPageClientProps {
   connectedProviders: string[];
-  organizationId: string;
+  workspaceSlug: string;
 }
 
 export function SelectRepoPageClient({
   connectedProviders,
-  organizationId,
+  workspaceSlug,
 }: SelectRepoPageClientProps) {
   const router = useRouter();
   const [selectedRepo, setSelectedRepo] = useState<RepoOption | null>(null);
@@ -65,7 +65,7 @@ export function SelectRepoPageClient({
       }
 
       // 3. Redirect to workspace
-      router.push(`/w/${organizationId}`);
+      router.push(`/w/${workspaceSlug}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

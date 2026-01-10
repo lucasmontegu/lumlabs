@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { WorkspaceSidebar } from "@/features/workspace";
+import { WorkspaceSidebar, WorkspaceProvider } from "@/features/workspace";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SessionTabsBar } from "@/features/session";
 
 export default async function WorkspaceLayout({
   children,
@@ -18,9 +20,16 @@ export default async function WorkspaceLayout({
   }
 
   return (
-    <div className="flex h-screen">
-      <WorkspaceSidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
-    </div>
+    <WorkspaceProvider>
+      <SidebarProvider>
+        <WorkspaceSidebar />
+        <SidebarInset>
+          <SessionTabsBar />
+          <main className="flex flex-1 flex-col overflow-hidden">
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </WorkspaceProvider>
   );
 }

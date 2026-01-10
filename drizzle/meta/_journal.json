@@ -15,6 +15,13 @@
       "when": 1767913516589,
       "tag": "0001_previous_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767914944481,
+      "tag": "0002_bored_sunfire",
+      "breakpoints": true
     }
   ]
 }

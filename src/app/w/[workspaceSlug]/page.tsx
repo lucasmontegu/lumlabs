@@ -1,10 +1,5 @@
-import { WorkspaceDashboard, WorkspaceHeader } from "@/features/workspace";
+import { WorkspacePageClient } from "./page-client";
 
 export default function WorkspacePage() {
-  return (
-    <>
-      <WorkspaceHeader title="Dashboard" />
-      <WorkspaceDashboard />
-    </>
-  );
+  return <WorkspacePageClient />;
 }

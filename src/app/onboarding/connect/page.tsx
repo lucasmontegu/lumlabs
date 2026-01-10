@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db, gitConnections, onboardingState } from "@/db";
+import { db, gitConnections, onboardingState, organizations } from "@/db";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import { ConnectPageClient } from "./page-client";
@@ -24,8 +24,18 @@ export default async function OnboardingConnectPage() {
 
   if (existingOnboarding?.step === "completed") {
     // Get the organization slug for redirect
-    const orgSlug = session.session.activeOrganizationId || "default";
-    redirect(`/w/${orgSlug}`);
+    const orgId = session.session.activeOrganizationId;
+    if (orgId) {
+      const [org] = await db
+        .select({ slug: organizations.slug })
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .limit(1);
+      if (org) {
+        redirect(`/w/${org.slug}`);
+      }
+    }
+    redirect("/");
   }
 
   // Create onboarding state if doesn't exist
