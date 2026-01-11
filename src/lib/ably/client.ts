@@ -121,6 +121,51 @@ class AblyServerClient {
       timestamp: new Date().toISOString(),
     });
   }
+
+  /**
+   * Publish chat message to session participants
+   */
+  async publishChatMessage(
+    sessionId: string,
+    message: {
+      id: string;
+      userId: string;
+      userName: string;
+      userImage?: string;
+      role: "user" | "assistant" | "system";
+      content: string;
+      mentions?: Array<{
+        type: "user" | "agent" | "integration";
+        userId?: string;
+        userName?: string;
+        agentType?: string;
+      }>;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    await this.publish(`session:${sessionId}:chat`, "message", {
+      ...message,
+      sessionId,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Publish mention notification to specific user
+   */
+  async publishMentionNotification(
+    userId: string,
+    notification: {
+      sessionId: string;
+      sessionName: string;
+      mentionedBy: string;
+      mentionedByImage?: string;
+      messagePreview: string;
+      timestamp: string;
+    }
+  ): Promise<void> {
+    await this.publish(`user:${userId}:notifications`, "mention", notification);
+  }
 }
 
 // Export singleton instance for server-side use
@@ -135,3 +180,7 @@ export const getSessionStatusChannel = (sessionId: string) =>
   `session:${sessionId}:status`;
 export const getSessionApprovalsChannel = (sessionId: string) =>
   `session:${sessionId}:approvals`;
+export const getSessionChatChannel = (sessionId: string) =>
+  `session:${sessionId}:chat`;
+export const getUserNotificationsChannel = (userId: string) =>
+  `user:${userId}:notifications`;

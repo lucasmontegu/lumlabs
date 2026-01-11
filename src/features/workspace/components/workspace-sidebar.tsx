@@ -9,6 +9,7 @@ import {
   Home01Icon,
   MessageEdit01Icon,
   SidebarLeftIcon,
+  FlashIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -89,6 +90,7 @@ export function WorkspaceSidebar() {
 
   const isSettings = pathname.includes("/settings");
   const isHome = pathname === `/w/${workspaceSlug}`;
+  const isSkills = pathname.includes("/skills");
   const groupedSessions = React.useMemo(
     () => groupSessionsByDate(sessions),
     [sessions]
@@ -116,7 +118,7 @@ export function WorkspaceSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Home */}
+        {/* Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -124,6 +126,12 @@ export function WorkspaceSidebar() {
                 <SidebarMenuButton render={<Link href={`/w/${workspaceSlug}`} />} isActive={isHome}>
                   <HugeiconsIcon icon={Home01Icon} />
                   <span>Home</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton render={<Link href={`/w/${workspaceSlug}/skills`} />} isActive={isSkills}>
+                  <HugeiconsIcon icon={FlashIcon} />
+                  <span>Skills</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

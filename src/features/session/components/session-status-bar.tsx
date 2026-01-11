@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { GitBranchIcon, Time01Icon, UserIcon } from "@hugeicons/core-free-icons";
+import { GitBranchIcon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import { useSessionStore, SessionStatus } from "../stores/session-store";
+import { PresenceAvatars, usePresence } from "@/features/presence";
+import { useSession } from "@/lib/auth-client";
 
 const statusLabels: Record<SessionStatus, string> = {
   idle: "Ready",
@@ -29,6 +31,19 @@ const statusColors: Record<SessionStatus, string> = {
 export function SessionStatusBar() {
   const { getActiveSession } = useSessionStore();
   const session = getActiveSession();
+  const { data: authSession } = useSession();
+
+  // Join presence for the active session
+  const { members } = usePresence({
+    channelName: session ? `session:${session.id}:presence` : "",
+    userData: {
+      userId: authSession?.user?.id || "",
+      userName: authSession?.user?.name || "Anonymous",
+      userImage: authSession?.user?.image || undefined,
+      sessionId: session?.id,
+    },
+    enabled: !!session && !!authSession?.user,
+  });
 
   if (!session) {
     return null;
@@ -51,6 +66,11 @@ export function SessionStatusBar() {
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Presence Avatars */}
+        {members.length > 0 && (
+          <PresenceAvatars members={members} size="sm" maxDisplay={4} />
+        )}
+
         {/* Repository */}
         <span className="text-muted-foreground">{session.repositoryName}</span>
       </div>
