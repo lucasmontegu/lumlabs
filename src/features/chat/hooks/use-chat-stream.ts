@@ -34,7 +34,6 @@ export function useChatStream({
     startStreaming,
     appendStreamContent,
     finishStreaming,
-    addMessage,
   } = useChatStore();
 
   const sendMessage = useCallback(
@@ -47,15 +46,8 @@ export function useChatStream({
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // Add user message optimistically
-      const userMessage: Message = {
-        id: `temp-${Date.now()}`,
-        sessionId,
-        role: "user",
-        content,
-        createdAt: new Date(),
-      };
-      addMessage(sessionId, userMessage);
+      // Note: User message should be added by the caller (ChatContainer)
+      // to include additional metadata like mentions and userId
 
       // Start streaming state
       startStreaming(sessionId);
@@ -173,7 +165,6 @@ export function useChatStream({
     },
     [
       sessionId,
-      addMessage,
       startStreaming,
       appendStreamContent,
       finishStreaming,

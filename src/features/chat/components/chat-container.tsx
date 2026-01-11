@@ -11,6 +11,7 @@ import { ChatInput } from "./chat-input";
 import { generateId } from "@/lib/id";
 import { useSession, useActiveOrganization } from "@/lib/auth-client";
 import { useChatRealtime } from "@/features/presence";
+import { useChatStream } from "../hooks/use-chat-stream";
 import type { MentionData } from "../lib/mentions";
 
 interface ChatContainerProps {
@@ -99,12 +100,24 @@ export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
     enabled: !!activeSessionId && !!authSession?.user,
   });
 
+  // Use the streaming hook for real AI responses
+  const {
+    sendMessage: sendStreamMessage,
+    isStreaming: isStreamingFromHook,
+    streamingContent: streamingContentFromHook,
+  } = useChatStream({
+    sessionId: activeSessionId || "",
+    onError: (error) => {
+      console.error("Chat stream error:", error);
+    },
+  });
+
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
   const currentStreamingContent = activeSessionId
-    ? streamingContent[activeSessionId] || ""
+    ? streamingContentFromHook || streamingContent[activeSessionId] || ""
     : "";
   const currentIsStreaming = activeSessionId
-    ? isStreaming[activeSessionId] || false
+    ? isStreamingFromHook || isStreaming[activeSessionId] || false
     : false;
   const pendingApproval = activeSessionId
     ? getPendingApproval(activeSessionId)
@@ -141,19 +154,8 @@ export function ChatContainer({ onToggleHistory }: ChatContainerProps) {
       mentions: messageMentions,
     });
 
-    // TODO: Send to API and handle streaming response
-    // For now, simulate a response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: generateId("msg"),
-        sessionId: activeSessionId,
-        role: "assistant",
-        content: `I understand you want to: "${content}"\n\nLet me analyze this request and create a plan for you.`,
-        phase: "planning",
-        createdAt: new Date(),
-      };
-      addMessage(activeSessionId, assistantMessage);
-    }, 1000);
+    // Send to streaming API for real AI response
+    sendStreamMessage(content);
   };
 
   // Handle typing change from input
