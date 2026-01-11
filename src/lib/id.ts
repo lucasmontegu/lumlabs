@@ -1,3 +1,5 @@
+import { randomBytes } from "crypto";
+
 /**
  * Generate a unique ID with optional prefix
  * Works in both browser and Node.js environments
@@ -14,7 +16,6 @@ export function generateId(prefix?: string): string {
     globalThis.crypto.getRandomValues(array);
   } else {
     // Fallback for older Node.js
-    const { randomBytes } = require("crypto");
     const bytes = randomBytes(12);
     for (let i = 0; i < 12; i++) {
       array[i] = bytes[i];
