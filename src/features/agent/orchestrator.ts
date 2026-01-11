@@ -6,7 +6,8 @@
  */
 
 import { daytona } from "@/lib/daytona";
-import { loadSkillsForSession, type SkillContext } from "@/features/skills";
+import { loadSkillsForSession } from "@/features/skills/skills-service";
+import { type SkillContext } from "@/features/skills";
 import { db } from "@/db";
 import {
   featureSessions,

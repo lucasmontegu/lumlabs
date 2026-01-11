@@ -25,6 +25,10 @@ export interface Message {
     tokensUsed?: number;
     filesChanged?: string[];
     toolsUsed?: string[];
+    prUrl?: string;
+    prNumber?: number;
+    path?: string;
+    [key: string]: unknown;
   };
   createdAt: Date;
 }

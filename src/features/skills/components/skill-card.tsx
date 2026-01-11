@@ -120,14 +120,10 @@ export function SkillCard({
 
           {!isReadOnly && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
-                </Button>
+              <DropdownMenuTrigger
+                className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background hover:bg-accent hover:text-accent-foreground h-8 w-8"
+              >
+                <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {onEdit && (

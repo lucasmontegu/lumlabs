@@ -8,7 +8,7 @@ import {
   Cancel01Icon,
   InformationCircleIcon,
   ViewIcon,
-  Code02Icon,
+  CodeIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -270,11 +270,14 @@ export function SkillEditor({
               </Label>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HugeiconsIcon
-                      icon={InformationCircleIcon}
-                      className="size-4 text-muted-foreground"
-                    />
+                  <TooltipTrigger
+                    render={
+                      <HugeiconsIcon
+                        icon={InformationCircleIcon}
+                        className="size-4 text-muted-foreground"
+                      />
+                    }
+                  >
                   </TooltipTrigger>
                   <TooltipContent>
                     Unique identifier for the skill. Auto-generated from name.
@@ -308,11 +311,12 @@ export function SkillEditor({
             <Label>Triggers</Label>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger render={
                   <HugeiconsIcon
                     icon={InformationCircleIcon}
                     className="size-4 text-muted-foreground"
                   />
+                }>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   Keywords that activate this skill. When a user message
@@ -367,9 +371,9 @@ export function SkillEditor({
 
             {/* Template Selector */}
             {!isEditing && (
-              <Select onValueChange={applyTemplate}>
+              <Select onValueChange={(value) => applyTemplate(value as string)}>
                 <SelectTrigger className="w-40 h-8 text-xs">
-                  <SelectValue placeholder="Use template" />
+                  <SelectValue>Use template</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SKILL_TEMPLATES.map((template) => (
@@ -387,7 +391,7 @@ export function SkillEditor({
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "edit" | "preview")}>
             <TabsList className="mb-2">
               <TabsTrigger value="edit" className="gap-1.5">
-                <HugeiconsIcon icon={Code02Icon} className="size-3.5" />
+                <HugeiconsIcon icon={CodeIcon} className="size-3.5" />
                 Edit
               </TabsTrigger>
               <TabsTrigger value="preview" className="gap-1.5">
