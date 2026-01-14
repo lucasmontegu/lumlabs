@@ -46,3 +46,4 @@ export {
 // Provider implementations (for direct access if needed)
 export { openCodeProvider, OpenCodeProvider } from "./opencode-provider";
 export { claudeAgentProvider, ClaudeAgentProvider } from "./claude-agent-provider";
+export { claudeAgentV2Provider, ClaudeAgentV2Provider } from "./claude-agent-v2-provider";
