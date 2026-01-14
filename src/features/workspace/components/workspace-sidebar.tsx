@@ -10,6 +10,7 @@ import {
   MessageEdit01Icon,
   SidebarLeftIcon,
   FlashIcon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -68,14 +69,14 @@ function groupSessionsByDate(sessions: FeatureSession[]) {
   return groups;
 }
 
-const statusColors = {
-  idle: "bg-muted-foreground",
-  planning: "bg-yellow-500",
-  plan_review: "bg-orange-500",
-  building: "bg-blue-500",
-  reviewing: "bg-purple-500",
-  ready: "bg-green-500",
-  error: "bg-red-500",
+const statusConfig = {
+  idle: { color: "bg-muted-foreground", pulse: false },
+  planning: { color: "bg-yellow-500", pulse: true },
+  plan_review: { color: "bg-orange-500", pulse: true },
+  building: { color: "bg-blue-500", pulse: true },
+  reviewing: { color: "bg-purple-500", pulse: true },
+  ready: { color: "bg-green-500", pulse: false },
+  error: { color: "bg-red-500", pulse: false },
 };
 
 export function WorkspaceSidebar() {
@@ -103,12 +104,12 @@ export function WorkspaceSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href={`/w/${workspaceSlug}`} />}>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold">
-                L
+              <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold shadow-sm">
+                V
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold">
-                  {activeWorkspace?.name || "LumLabs"}
+                  {activeWorkspace?.name || "VibeCode"}
                 </span>
                 <span className="text-xs text-muted-foreground">Workspace</span>
               </div>
@@ -146,22 +147,35 @@ export function WorkspaceSidebar() {
               <SidebarGroupLabel>{title}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {groupSessions.map((session) => (
-                    <SidebarMenuItem key={session.id}>
-                      <SidebarMenuButton
-                        render={<Link href={`/w/${workspaceSlug}/s/${session.id}`} />}
-                        isActive={session.id === sessionId}
-                      >
-                        <div
-                          className={cn(
-                            "size-2 shrink-0 rounded-full",
-                            statusColors[session.status]
-                          )}
-                        />
-                        <span className="truncate">{session.name}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {groupSessions.map((session) => {
+                    const status = statusConfig[session.status] || statusConfig.idle;
+                    return (
+                      <SidebarMenuItem key={session.id}>
+                        <SidebarMenuButton
+                          render={<Link href={`/w/${workspaceSlug}/s/${session.id}`} />}
+                          isActive={session.id === sessionId}
+                        >
+                          <div className="relative">
+                            <div
+                              className={cn(
+                                "size-2 shrink-0 rounded-full",
+                                status.color
+                              )}
+                            />
+                            {status.pulse && (
+                              <div
+                                className={cn(
+                                  "absolute inset-0 size-2 rounded-full animate-ping opacity-75",
+                                  status.color
+                                )}
+                              />
+                            )}
+                          </div>
+                          <span className="truncate">{session.name}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

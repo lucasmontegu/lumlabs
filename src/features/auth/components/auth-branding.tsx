@@ -18,17 +18,29 @@ export function AuthBranding() {
       </div>
 
       {/* Content */}
-      <div className="relative z-20 flex items-center gap-2.5 text-lg font-medium">
+      <div className="relative z-20 flex items-center gap-2.5 text-xl font-bold">
         <Logo />
-        <span className="tracking-tight">LumLabs</span>
+        <span className="tracking-tight">VibeCode</span>
       </div>
 
-      <div className="relative z-20 mt-auto">
-        <blockquote className="space-y-2">
-          <p className="text-lg text-zinc-400">
-            Build features with AI. Describe what you want, and watch it come to life.
-          </p>
-        </blockquote>
+      <div className="relative z-20 mt-auto space-y-6">
+        <h2 className="text-3xl font-bold tracking-tight">
+          Build features with AI.
+        </h2>
+        <p className="text-lg text-zinc-400 max-w-md">
+          Describe what you want in plain language and let AI agents plan, design, and implement it for you.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-4">
+          <div className="rounded-full bg-zinc-800/80 px-4 py-2 text-sm text-zinc-300">
+            No coding required
+          </div>
+          <div className="rounded-full bg-zinc-800/80 px-4 py-2 text-sm text-zinc-300">
+            Live previews
+          </div>
+          <div className="rounded-full bg-zinc-800/80 px-4 py-2 text-sm text-zinc-300">
+            Instant checkpoints
+          </div>
+        </div>
       </div>
 
       {/* Decorative elements */}
