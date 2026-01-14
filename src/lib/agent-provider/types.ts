@@ -8,7 +8,7 @@
 /**
  * Supported agent provider types
  */
-export type AgentProviderType = "opencode" | "claude-agent-sdk";
+export type AgentProviderType = "opencode" | "claude-agent-sdk" | "claude-agent-sdk-v2";
 
 /**
  * Configuration for creating an agent session
