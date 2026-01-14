@@ -8,6 +8,7 @@
 import type { AgentProvider, AgentProviderType } from "./types";
 import { openCodeProvider } from "./opencode-provider";
 import { claudeAgentProvider } from "./claude-agent-provider";
+import { claudeAgentV2Provider } from "./claude-agent-v2-provider";
 
 /**
  * Provider configuration
@@ -28,17 +29,21 @@ export interface AgentProviderConfig {
     "claude-agent-sdk"?: {
       enabled: boolean;
     };
+    "claude-agent-sdk-v2"?: {
+      enabled: boolean;
+    };
   };
 }
 
 /**
- * Default configuration - uses environment variable or falls back to opencode
+ * Default configuration - uses environment variable or falls back to claude-agent-sdk-v2
  */
 const defaultConfig: AgentProviderConfig = {
-  defaultProvider: (process.env.AGENT_PROVIDER as AgentProviderType) || "opencode",
+  defaultProvider: (process.env.AGENT_PROVIDER as AgentProviderType) || "claude-agent-sdk-v2",
   providers: {
     opencode: { enabled: true },
     "claude-agent-sdk": { enabled: true },
+    "claude-agent-sdk-v2": { enabled: true },
   },
 };
 
@@ -51,6 +56,7 @@ let activeConfig: AgentProviderConfig = defaultConfig;
 const providers: Record<AgentProviderType, AgentProvider> = {
   opencode: openCodeProvider,
   "claude-agent-sdk": claudeAgentProvider,
+  "claude-agent-sdk-v2": claudeAgentV2Provider,
 };
 
 /**
