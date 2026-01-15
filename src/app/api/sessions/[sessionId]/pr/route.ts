@@ -10,10 +10,14 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { db, featureSessions, sandboxes, repositories, gitConnections, messages } from "@/db";
+import { db, featureSessions, repositories, gitConnections, messages } from "@/db";
 import { eq, and, desc } from "drizzle-orm";
 import { daytona } from "@/lib/daytona";
 import { generateId } from "@/lib/id";
+import {
+  getOrCreateSandboxForSession,
+  ensureSandboxRunning,
+} from "@/features/sandbox";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
@@ -45,15 +49,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Get feature session with repository and sandbox
+    // Get or create sandbox for this session
+    let sandbox;
+    try {
+      const result = await getOrCreateSandboxForSession(
+        sessionId,
+        organizationId,
+        session.user.id
+      );
+      sandbox = result.sandbox;
+      await ensureSandboxRunning(sandbox.id, sandbox.daytonaWorkspaceId);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to provision sandbox";
+      if (errorMessage === "Session not found") {
+        return new Response(JSON.stringify({ error: "Session not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: `Sandbox error: ${errorMessage}` }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Get feature session with repository
     const featureSession = await db
       .select({
         session: featureSessions,
-        sandbox: sandboxes,
         repository: repositories,
       })
       .from(featureSessions)
-      .leftJoin(sandboxes, eq(featureSessions.sandboxId, sandboxes.id))
       .leftJoin(repositories, eq(featureSessions.repositoryId, repositories.id))
       .where(
         and(
@@ -70,17 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const { session: fs, sandbox, repository } = featureSession[0];
-
-    if (!sandbox || !sandbox.daytonaWorkspaceId) {
-      return new Response(
-        JSON.stringify({ error: "No sandbox available for this session" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
+    const { session: fs, repository } = featureSession[0];
 
     if (!repository) {
       return new Response(

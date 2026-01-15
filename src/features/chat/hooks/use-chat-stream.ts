@@ -16,6 +16,7 @@ interface StreamEvent {
 
 interface UseChatStreamOptions {
   sessionId: string;
+  sandboxProvider?: "daytona" | "e2b" | "modal";
   onToolCall?: (toolCall: StreamEvent["toolCall"]) => void;
   onError?: (error: string) => void;
   onComplete?: (message: Message) => void;
@@ -23,6 +24,7 @@ interface UseChatStreamOptions {
 
 export function useChatStream({
   sessionId,
+  sandboxProvider,
   onToolCall,
   onError,
   onComplete,
@@ -61,7 +63,7 @@ export function useChatStream({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ content, systemPrompt }),
+          body: JSON.stringify({ content, systemPrompt, sandboxProvider }),
           signal: controller.signal,
         });
 
@@ -165,6 +167,7 @@ export function useChatStream({
     },
     [
       sessionId,
+      sandboxProvider,
       startStreaming,
       appendStreamContent,
       finishStreaming,

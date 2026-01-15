@@ -303,7 +303,7 @@ export const repositories = pgTable(
   ]
 );
 
-// Daytona sandbox per repository
+// Cloud sandbox per repository (supports Daytona, E2B, Modal)
 export const sandboxes = pgTable(
   "sandboxes",
   {
@@ -311,7 +311,8 @@ export const sandboxes = pgTable(
     repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id, { onDelete: "cascade" }),
-    daytonaWorkspaceId: text("daytona_workspace_id"), // Daytona's ID
+    daytonaWorkspaceId: text("daytona_workspace_id"), // Provider workspace ID (legacy name for compatibility)
+    provider: text("provider").default("daytona"), // daytona/e2b/modal
     status: text("status").default("creating").notNull(), // creating/running/paused/error
     lastCheckpointId: text("last_checkpoint_id"),
     lastActiveAt: timestamp("last_active_at"),

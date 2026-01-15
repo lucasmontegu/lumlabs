@@ -22,6 +22,13 @@
       "when": 1767914944481,
       "tag": "0002_bored_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768448943838,
+      "tag": "0003_confused_white_queen",
+      "breakpoints": true
     }
   ]
 }

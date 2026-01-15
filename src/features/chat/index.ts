@@ -20,6 +20,9 @@ export { BuildingProgress } from "./components/building-progress";
 export type { FileChange } from "./components/building-progress";
 export { ReadyCard } from "./components/ready-card";
 export { QuestionCard } from "./components/question-card";
+export { InlinePromptDialog } from "./components/inline-prompt-dialog";
+export { PromptComposer, type CloudEnvironment } from "./components/prompt-composer";
+export { NewEnvironmentDialog } from "./components/new-environment-dialog";
 
 // Mentions
 export { MentionPopover, MentionBadge } from "./components/mention-popover";

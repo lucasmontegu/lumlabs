@@ -36,10 +36,12 @@ export interface AgentProviderConfig {
 }
 
 /**
- * Default configuration - uses environment variable or falls back to claude-agent-sdk-v2
+ * Default configuration - uses environment variable or falls back to claude-agent-sdk
+ * Note: claude-agent-sdk runs inside Daytona sandbox (has access to repo files)
+ * Note: claude-agent-sdk-v2 runs locally (no access to sandbox files)
  */
 const defaultConfig: AgentProviderConfig = {
-  defaultProvider: (process.env.AGENT_PROVIDER as AgentProviderType) || "claude-agent-sdk-v2",
+  defaultProvider: (process.env.AGENT_PROVIDER as AgentProviderType) || "claude-agent-sdk",
   providers: {
     opencode: { enabled: true },
     "claude-agent-sdk": { enabled: true },

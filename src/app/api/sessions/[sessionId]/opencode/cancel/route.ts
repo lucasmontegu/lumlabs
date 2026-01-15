@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { db, featureSessions, sandboxes } from "@/db";
-import { eq, and } from "drizzle-orm";
+import { db, featureSessions } from "@/db";
+import { eq } from "drizzle-orm";
 import { createOpenCodeClient } from "@/lib/opencode";
 import { daytona } from "@/lib/daytona";
+import {
+  getOrCreateSandboxForSession,
+  ensureSandboxRunning,
+} from "@/features/sandbox";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
@@ -29,36 +33,36 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get feature session with sandbox
-    const featureSession = await db
-      .select({
-        session: featureSessions,
-        sandbox: sandboxes,
-      })
-      .from(featureSessions)
-      .leftJoin(sandboxes, eq(featureSessions.sandboxId, sandboxes.id))
-      .where(
-        and(
-          eq(featureSessions.id, sessionId),
-          eq(featureSessions.organizationId, organizationId)
-        )
-      )
-      .limit(1);
-
-    if (!featureSession[0]) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
-    }
-
-    const { session: fs, sandbox } = featureSession[0];
-
-    if (!sandbox || !sandbox.daytonaWorkspaceId) {
+    // Get or create sandbox for this session
+    let sandbox;
+    try {
+      const result = await getOrCreateSandboxForSession(
+        sessionId,
+        organizationId,
+        session.user.id
+      );
+      sandbox = result.sandbox;
+      await ensureSandboxRunning(sandbox.id, sandbox.daytonaWorkspaceId);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to provision sandbox";
+      if (errorMessage === "Session not found") {
+        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      }
       return NextResponse.json(
-        { error: "No sandbox available for this session" },
-        { status: 400 }
+        { error: `Sandbox error: ${errorMessage}` },
+        { status: 500 }
       );
     }
 
-    if (!fs.opencodeSessionId) {
+    // Get feature session to check for OpenCode session ID
+    const featureSession = await db
+      .select()
+      .from(featureSessions)
+      .where(eq(featureSessions.id, sessionId))
+      .limit(1);
+
+    if (!featureSession[0]?.opencodeSessionId) {
       return NextResponse.json(
         { error: "No OpenCode session to cancel" },
         { status: 404 }
@@ -70,7 +74,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
     // Cancel OpenCode operation
     const opencode = createOpenCodeClient(previewUrl);
-    await opencode.cancelOperation(fs.opencodeSessionId);
+    await opencode.cancelOperation(featureSession[0].opencodeSessionId);
 
     // Update session status
     await db

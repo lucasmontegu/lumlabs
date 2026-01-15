@@ -20,6 +20,9 @@ export interface FeatureSession {
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
+  // Stats for display
+  linesAdded?: number;
+  linesRemoved?: number;
 }
 
 interface SessionStore {

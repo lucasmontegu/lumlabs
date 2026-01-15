@@ -4,6 +4,8 @@ import { persist } from "zustand/middleware";
 export interface Repository {
   id: string;
   name: string;
+  fullName?: string;
+  owner?: string;
   url: string;
   provider: "github" | "gitlab" | "bitbucket";
   defaultBranch: string;

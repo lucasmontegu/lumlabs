@@ -1,14 +1,20 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { db, featureSessions, sandboxes, messages } from "@/db";
-import { eq, and } from "drizzle-orm";
+import { db, featureSessions, messages } from "@/db";
+import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import {
   getDefaultProvider,
   getProvider,
   type AgentProviderType,
 } from "@/lib/agent-provider";
+import {
+  getOrCreateSandboxForSession,
+  ensureSandboxRunning,
+  touchSandbox,
+} from "@/features/sandbox";
+import type { SandboxProviderType } from "@/lib/sandbox-provider";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
@@ -36,45 +42,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Get feature session with sandbox
-    const featureSession = await db
-      .select({
-        session: featureSessions,
-        sandbox: sandboxes,
-      })
-      .from(featureSessions)
-      .leftJoin(sandboxes, eq(featureSessions.sandboxId, sandboxes.id))
-      .where(
-        and(
-          eq(featureSessions.id, sessionId),
-          eq(featureSessions.organizationId, organizationId)
-        )
-      )
-      .limit(1);
-
-    if (!featureSession[0]) {
-      return new Response(JSON.stringify({ error: "Session not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { session: fs, sandbox } = featureSession[0];
-
-    if (!sandbox || !sandbox.daytonaWorkspaceId) {
-      return new Response(
-        JSON.stringify({ error: "No sandbox available for this session" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
     const body = await request.json();
-    const { content, provider: providerType } = body as {
+    const {
+      content,
+      provider: providerType,
+      sandboxProvider: sandboxProviderType,
+    } = body as {
       content: string;
       provider?: AgentProviderType;
+      sandboxProvider?: SandboxProviderType;
     };
 
     if (!content) {
@@ -82,6 +58,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Get or create sandbox for this session (auto-provisions if needed)
+    let sandbox;
+    try {
+      const result = await getOrCreateSandboxForSession(
+        sessionId,
+        organizationId,
+        session.user.id,
+        sandboxProviderType ? { provider: sandboxProviderType } : undefined
+      );
+      sandbox = result.sandbox;
+
+      if (result.created) {
+        console.log(`[Stream] Auto-created sandbox ${sandbox.id} for session ${sessionId} using ${sandbox.provider || "daytona"}`);
+      }
+
+      // Ensure sandbox is running (resume if paused)
+      await ensureSandboxRunning(sandbox.id, sandbox.daytonaWorkspaceId, sandbox.provider);
+    } catch (error) {
+      console.error("Error getting/creating sandbox:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to provision sandbox";
+
+      if (errorMessage === "Session not found") {
+        return new Response(JSON.stringify({ error: "Session not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ error: `Sandbox error: ${errorMessage}` }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Get the agent provider (use specified or default)
@@ -128,10 +142,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             )
           );
 
+          // Touch sandbox to update last active timestamp
+          await touchSandbox(sandbox.id);
+
           // Stream from agent provider
           for await (const event of provider.sendMessage({
             sessionId: sandbox.id,
-            workspaceId: sandbox.daytonaWorkspaceId!,
+            workspaceId: sandbox.daytonaWorkspaceId,
             content,
           })) {
             if (event.type === "done") {

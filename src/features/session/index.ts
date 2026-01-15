@@ -11,3 +11,4 @@ export { SessionPreview } from "./components/session-preview";
 export { SessionStatusBar } from "./components/session-status-bar";
 export { SessionLayout } from "./components/session-layout";
 export { ChatFirstLayout } from "./components/chat-first-layout";
+export { SessionsList } from "./components/sessions-list";
